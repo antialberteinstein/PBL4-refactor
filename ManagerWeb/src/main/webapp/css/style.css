@@ -1,0 +1,477 @@
+/* ============================================================================= */
+/*                           GLOBAL STYLES - Codeforces Theme                   */
+/* ============================================================================= */
+
+:root {
+    /* Color palette inspired by Codeforces */
+    --cf-primary: #0055cc;
+    --cf-primary-dark: #003d99;
+    --cf-success: #198754;
+    --cf-danger: #dc3545;
+    --cf-warning: #ffc107;
+    --cf-info: #0dcaf0;
+    --cf-light: #f8f9fa;
+    --cf-dark: #212529;
+    --cf-border: #dee2e6;
+    --cf-shadow: rgba(0, 0, 0, 0.1);
+    
+    /* Typography */
+    --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: "Courier New", Courier, monospace;
+}
+
+body {
+    font-family: var(--font-main);
+    background-color: #f5f5f5;
+    color: var(--cf-dark);
+    line-height: 1.6;
+}
+
+/* ============================================================================= */
+/*                                  NAVBAR                                       */
+/* ============================================================================= */
+
+.navbar {
+    box-shadow: 0 2px 4px var(--cf-shadow);
+    background-color: var(--cf-primary) !important;
+}
+
+.navbar-brand {
+    font-weight: 600;
+    font-size: 1.25rem;
+}
+
+.navbar-brand:hover {
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.navbar-nav .nav-link {
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+.navbar-nav .nav-link:hover {
+    color: rgba(255, 255, 255, 0.85) !important;
+}
+
+/* ============================================================================= */
+/*                                  CARDS                                        */
+/* ============================================================================= */
+
+.card {
+    border: 1px solid var(--cf-border);
+    border-radius: 8px;
+    box-shadow: 0 1px 3px var(--cf-shadow);
+    transition: box-shadow 0.3s ease;
+    background: white;
+}
+
+.card:hover {
+    box-shadow: 0 4px 6px var(--cf-shadow);
+}
+
+.card-header {
+    background-color: var(--cf-light);
+    border-bottom: 1px solid var(--cf-border);
+    font-weight: 600;
+    padding: 1rem 1.25rem;
+}
+
+.card-body {
+    padding: 1.25rem;
+}
+
+/* ============================================================================= */
+/*                              AGENT GRID                                       */
+/* ============================================================================= */
+
+.agent-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+    padding: 1rem 0;
+}
+
+.agent-card {
+    background: white;
+    border: 2px solid var(--cf-border);
+    border-radius: 8px;
+    padding: 1.25rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.agent-card:hover {
+    border-color: var(--cf-primary);
+    box-shadow: 0 6px 12px var(--cf-shadow);
+    transform: translateY(-4px);
+}
+
+.agent-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.agent-os-icon {
+    font-size: 2.5rem;
+    color: var(--cf-primary);
+}
+
+.agent-status {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+
+.agent-status.online {
+    color: var(--cf-success);
+}
+
+.agent-status i {
+    font-size: 0.75rem;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.agent-card-body {
+    margin-bottom: 1rem;
+}
+
+.agent-hostname {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--cf-dark);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.agent-ip {
+    font-size: 0.9rem;
+    font-family: var(--font-mono);
+}
+
+.agent-specs small {
+    display: block;
+    margin: 0.25rem 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.agent-card-footer {
+    border-top: 1px solid var(--cf-border);
+    padding-top: 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+}
+
+/* ============================================================================= */
+/*                                BUTTONS                                        */
+/* ============================================================================= */
+
+.btn {
+    border-radius: 6px;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    transition: all 0.2s ease;
+}
+
+.btn-success {
+    background-color: var(--cf-success);
+    border-color: var(--cf-success);
+}
+
+.btn-success:hover {
+    background-color: #146c43;
+    border-color: #146c43;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(25, 135, 84, 0.3);
+}
+
+.btn-primary {
+    background-color: var(--cf-primary);
+    border-color: var(--cf-primary);
+}
+
+.btn-primary:hover {
+    background-color: var(--cf-primary-dark);
+    border-color: var(--cf-primary-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 85, 204, 0.3);
+}
+
+.btn-outline-primary {
+    color: var(--cf-primary);
+    border-color: var(--cf-primary);
+}
+
+.btn-outline-primary:hover {
+    background-color: var(--cf-primary);
+    border-color: var(--cf-primary);
+    color: white;
+}
+
+/* ============================================================================= */
+/*                                 BADGES                                        */
+/* ============================================================================= */
+
+.badge {
+    border-radius: 4px;
+    padding: 0.35rem 0.65rem;
+    font-weight: 600;
+}
+
+.badge.bg-primary {
+    background-color: var(--cf-primary) !important;
+}
+
+/* ============================================================================= */
+/*                                 TABLES                                        */
+/* ============================================================================= */
+
+.table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.table thead th {
+    background-color: var(--cf-light);
+    color: var(--cf-dark);
+    font-weight: 600;
+    border-bottom: 2px solid var(--cf-border);
+    padding: 0.75rem 1rem;
+}
+
+.table tbody tr {
+    transition: background-color 0.2s ease;
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 85, 204, 0.05);
+}
+
+.table tbody td {
+    padding: 0.75rem 1rem;
+    vertical-align: middle;
+}
+
+/* ============================================================================= */
+/*                                 CHARTS                                        */
+/* ============================================================================= */
+
+canvas {
+    max-height: 400px !important;
+}
+
+.card-body canvas {
+    height: 350px !important;
+}
+
+/* Chart container styling */
+.chart-container {
+    position: relative;
+    height: 400px;
+    padding: 1rem;
+}
+
+/* ============================================================================= */
+/*                                DROPDOWNS                                      */
+/* ============================================================================= */
+
+.form-select {
+    border: 1px solid var(--cf-border);
+    border-radius: 6px;
+    padding: 0.375rem 2rem 0.375rem 0.75rem;
+    transition: border-color 0.15s ease-in-out;
+}
+
+.form-select:focus {
+    border-color: var(--cf-primary);
+    box-shadow: 0 0 0 0.25rem rgba(0, 85, 204, 0.25);
+}
+
+.form-select-sm {
+    padding: 0.25rem 1.5rem 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+/* ============================================================================= */
+/*                                 ALERTS                                        */
+/* ============================================================================= */
+
+.alert {
+    border-radius: 6px;
+    border: 1px solid transparent;
+    padding: 1rem 1.25rem;
+}
+
+.alert-danger {
+    background-color: #f8d7da;
+    border-color: #f5c2c7;
+    color: #842029;
+}
+
+.alert-success {
+    background-color: #d1e7dd;
+    border-color: #badbcc;
+    color: #0f5132;
+}
+
+/* ============================================================================= */
+/*                             LOADING SPINNER                                   */
+/* ============================================================================= */
+
+.spinner-border {
+    width: 3rem;
+    height: 3rem;
+    border-width: 0.3rem;
+}
+
+.spinner-border.text-primary {
+    color: var(--cf-primary) !important;
+}
+
+/* ============================================================================= */
+/*                           RESPONSIVE DESIGN                                   */
+/* ============================================================================= */
+
+@media (max-width: 768px) {
+    .agent-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .agent-card {
+        padding: 1rem;
+    }
+    
+    .navbar-brand {
+        font-size: 1rem;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+    
+    canvas {
+        max-height: 300px !important;
+    }
+}
+
+@media (max-width: 576px) {
+    .container-fluid {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    
+    .agent-specs small {
+        font-size: 0.8rem;
+    }
+    
+    .btn-group-sm .btn {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+}
+
+/* ============================================================================= */
+/*                             UTILITY CLASSES                                   */
+/* ============================================================================= */
+
+.text-mono {
+    font-family: var(--font-mono);
+}
+
+.bg-gradient-primary {
+    background: linear-gradient(135deg, var(--cf-primary) 0%, var(--cf-primary-dark) 100%);
+}
+
+.shadow-sm-custom {
+    box-shadow: 0 1px 2px var(--cf-shadow);
+}
+
+.shadow-md-custom {
+    box-shadow: 0 4px 6px var(--cf-shadow);
+}
+
+.shadow-lg-custom {
+    box-shadow: 0 10px 15px var(--cf-shadow);
+}
+
+/* ============================================================================= */
+/*                              SCROLLBAR STYLING                                */
+/* ============================================================================= */
+
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--cf-light);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--cf-border);
+    border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #adb5bd;
+}
+
+/* ============================================================================= */
+/*                              ANIMATIONS                                       */
+/* ============================================================================= */
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+/* ============================================================================= */
+/*                              PRINT STYLES                                     */
+/* ============================================================================= */
+
+@media print {
+    .navbar,
+    .btn,
+    .alert {
+        display: none;
+    }
+    
+    .card {
+        box-shadow: none;
+        border: 1px solid #ccc;
+    }
+    
+    body {
+        background: white;
+    }
+}

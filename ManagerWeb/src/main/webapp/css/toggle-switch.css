@@ -1,0 +1,279 @@
+/* ============================================================================ */
+/*                         CUSTOM TOGGLE SWITCH                               */
+/* ============================================================================ */
+
+.view-mode-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.toggle-checkbox {
+    display: none;
+}
+
+.toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    user-select: none;
+    margin: 0;
+}
+
+/* Toggle Switch Container */
+.toggle-inner {
+    position: relative;
+    width: 60px;
+    height: 30px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 30px;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    padding: 3px;
+}
+
+/* Switch Ball */
+.toggle-switch {
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    background: white;
+    border-radius: 50%;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    left: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.toggle-switch::before {
+    content: '📋';
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+/* Toggle Text */
+.toggle-text {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 500;
+    font-size: 14px;
+    color: #667eea;
+    transition: all 0.3s ease;
+}
+
+.toggle-text i {
+    font-size: 16px;
+    transition: all 0.3s ease;
+}
+
+/* Checked State - Charts Mode */
+.toggle-checkbox:checked + .toggle-label .toggle-inner {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    box-shadow: 0 2px 8px rgba(240, 147, 251, 0.4);
+}
+
+.toggle-checkbox:checked + .toggle-label .toggle-switch {
+    transform: translateX(30px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.toggle-checkbox:checked + .toggle-label .toggle-switch::before {
+    content: '📊';
+}
+
+.toggle-checkbox:checked + .toggle-label .toggle-text {
+    color: #f5576c;
+}
+
+/* Hover Effects */
+.toggle-label:hover .toggle-inner {
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
+    transform: translateY(-1px);
+}
+
+.toggle-checkbox:checked + .toggle-label:hover .toggle-inner {
+    box-shadow: 0 4px 12px rgba(240, 147, 251, 0.6);
+}
+
+.toggle-label:hover .toggle-switch {
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+}
+
+/* Active/Click Effect */
+.toggle-label:active .toggle-inner {
+    transform: scale(0.95);
+}
+
+/* Focus State for Accessibility */
+.toggle-checkbox:focus + .toggle-label .toggle-inner {
+    outline: 2px solid #667eea;
+    outline-offset: 2px;
+}
+
+.toggle-checkbox:checked:focus + .toggle-label .toggle-inner {
+    outline-color: #f5576c;
+}
+
+/* Animation for smooth transition */
+@keyframes toggle-bounce {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    50% {
+        transform: translateX(2px);
+    }
+}
+
+.toggle-label:hover .toggle-switch {
+    animation: toggle-bounce 0.6s ease-in-out;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .toggle-inner {
+        width: 50px;
+        height: 26px;
+    }
+    
+    .toggle-switch {
+        width: 20px;
+        height: 20px;
+    }
+    
+    .toggle-switch::before {
+        font-size: 12px;
+    }
+    
+    .toggle-checkbox:checked + .toggle-label .toggle-switch {
+        transform: translateX(24px);
+    }
+    
+    .toggle-text {
+        font-size: 13px;
+    }
+    
+    .toggle-text i {
+        font-size: 14px;
+    }
+}
+
+/* Dark Mode Support (Optional) */
+@media (prefers-color-scheme: dark) {
+    .toggle-text {
+        color: #8b9cff;
+    }
+    
+    .toggle-checkbox:checked + .toggle-label .toggle-text {
+        color: #ff8fa3;
+    }
+}
+
+/* Additional Styles for Better Integration */
+.view-mode-toggle {
+    padding: 5px 0;
+}
+
+/* Pulse animation on first load */
+@keyframes pulse-glow {
+    0%, 100% {
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    }
+    50% {
+        box-shadow: 0 2px 16px rgba(102, 126, 234, 0.6);
+    }
+}
+
+.toggle-inner {
+    animation: pulse-glow 2s ease-in-out 3;
+}
+
+/* ============================================================================ */
+/*                         OTHERS DRILL-DOWN STYLES                            */
+/* ============================================================================ */
+
+/* Clickable "Others" segment style */
+.clickable-others {
+    cursor: pointer !important;
+    transition: opacity 0.2s ease;
+}
+
+.clickable-others:hover {
+    opacity: 0.85;
+}
+
+/* Others Modal Enhancements */
+#othersModal .modal-header {
+    border-bottom: 2px solid #667eea;
+}
+
+#othersModal .breadcrumb {
+    background: transparent;
+    padding: 0;
+    margin-top: 5px;
+}
+
+#othersModal .breadcrumb-item a {
+    color: #667eea;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+#othersModal .breadcrumb-item a:hover {
+    color: #764ba2;
+    text-decoration: underline;
+}
+
+#othersModal .sticky-top {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+/* Chart.js custom tooltip for Others */
+.chartjs-tooltip-others {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 10px 15px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    font-size: 13px;
+    pointer-events: none;
+}
+
+.chartjs-tooltip-others::after {
+    content: "💡 Click to view details";
+    display: block;
+    margin-top: 5px;
+    font-size: 11px;
+    font-style: italic;
+    opacity: 0.9;
+}
+
+/* Animation for modal open */
+#othersModal.show .modal-dialog {
+    animation: slideInDown 0.3s ease-out;
+}
+
+@keyframes slideInDown {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Table row hover in others modal */
+#othersTableBody tr:hover {
+    background-color: rgba(102, 126, 234, 0.1);
+    cursor: default;
+}
+
