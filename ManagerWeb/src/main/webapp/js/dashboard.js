@@ -159,6 +159,23 @@
             const mac = $(this).data('mac');
             navigateToAgentDetail(mac);
         });
+        
+        // Attach remote command button handlers
+        $('.send-message-btn').on('click', function(e) {
+            e.stopPropagation();
+            const mac = $(this).data('mac');
+            RemoteCommands.sendMessageWithPrompt(mac);
+        });
+        
+        $('.shutdown-btn').on('click', function(e) {
+            e.stopPropagation();
+            const mac = $(this).data('mac');
+            const delayStr = prompt('Enter shutdown delay in seconds (default 60):', '60');
+            if (delayStr !== null) {
+                const delay = parseInt(delayStr) || 60;
+                RemoteCommands.shutdownWithConfirm(mac, delay);
+            }
+        });
     }
     
     // ============================================================================ //
@@ -248,10 +265,26 @@
                         </small>
                     </div>
                 </div>
-                <div class="agent-card-footer text-muted">
-                    <small>
-                        <i class="fas fa-fingerprint"></i> ${formatMAC(agent.macAddress)}
-                    </small>
+                <div class="agent-card-footer">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">
+                            <i class="fas fa-fingerprint"></i> ${formatMAC(agent.macAddress)}
+                        </small>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn btn-sm btn-outline-primary send-message-btn" 
+                                    data-mac="${agent.macAddress}"
+                                    title="Send message"
+                                    onclick="event.stopPropagation();">
+                                <i class="fas fa-envelope"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-warning shutdown-btn" 
+                                    data-mac="${agent.macAddress}"
+                                    title="Shutdown"
+                                    onclick="event.stopPropagation();">
+                                <i class="fas fa-power-off"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;

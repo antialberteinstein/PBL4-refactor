@@ -69,6 +69,21 @@
         <div class="row mb-4">
             <div class="col-12">
                 <div class="card">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-info-circle"></i> Agent Information
+                        </h5>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn btn-outline-primary" id="sendMessageBtn" 
+                                    title="Send message to Agent">
+                                <i class="fas fa-envelope"></i> Send Message
+                            </button>
+                            <button type="button" class="btn btn-outline-warning" id="shutdownBtn" 
+                                    title="Shutdown Agent computer">
+                                <i class="fas fa-power-off"></i> Shutdown
+                            </button>
+                        </div>
+                    </div>
                     <div class="card-body">
                         <div id="agentInfo" class="agent-info">
                             <div class="spinner-border text-primary" role="status">
@@ -312,6 +327,7 @@
                                         <th style="cursor: pointer;" data-sort="ram">
                                             <span id="ramHeader">RAM</span> <i class="fas fa-sort text-muted"></i>
                                         </th>
+                                        <th style="width: 80px; text-align: center;">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody id="processTableBody">
@@ -484,6 +500,9 @@
     
     <!-- Moment.js for time formatting -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+    
+    <!-- Remote Commands Module -->
+    <script src="<%= request.getContextPath() %>/js/remote-commands.js"></script>
     
     <!-- Custom JS -->
     <script src="<%= request.getContextPath() %>/js/agent-detail.js"></script>

@@ -28,8 +28,37 @@ public class SettingsServlet extends HttpServlet {
         
         // Get language parameter
         String language = request.getParameter("language");
+        String cpuThresholdStr = request.getParameter("cpuThreshold");
+        String ramThresholdStr = request.getParameter("ramThreshold");
         
-        if (language != null && (language.equals("en") || language.equals("vi"))) {
+        boolean validInput = true;
+        double cpuThreshold = 90.0;
+        double ramThreshold = 90.0;
+        
+        // Validate threshold inputs
+        if (cpuThresholdStr != null && !cpuThresholdStr.isEmpty()) {
+            try {
+                cpuThreshold = Double.parseDouble(cpuThresholdStr);
+                if (cpuThreshold < 0 || cpuThreshold > 100) {
+                    validInput = false;
+                }
+            } catch (NumberFormatException e) {
+                validInput = false;
+            }
+        }
+        
+        if (ramThresholdStr != null && !ramThresholdStr.isEmpty()) {
+            try {
+                ramThreshold = Double.parseDouble(ramThresholdStr);
+                if (ramThreshold < 0 || ramThreshold > 100) {
+                    validInput = false;
+                }
+            } catch (NumberFormatException e) {
+                validInput = false;
+            }
+        }
+        
+        if (validInput && language != null && (language.equals("en") || language.equals("vi"))) {
             // Store language preference in session
             session.setAttribute("language", language);
             
@@ -41,8 +70,13 @@ public class SettingsServlet extends HttpServlet {
                 AppConfig appConfig = (AppConfig) context.getAttribute("appConfig");
                 if (appConfig != null) {
                     appConfig.setLanguage(language);
+                    appConfig.setCpuThresholdPercent(cpuThreshold);
+                    appConfig.setRamThresholdPercent(ramThreshold);
                     ConfigManager.saveConfig(appConfig);
-                    System.out.println("✓ Language saved to config.json: " + language);
+                    System.out.println("✓ Settings saved to config.json:");
+                    System.out.println("  - Language: " + language);
+                    System.out.println("  - CPU Threshold: " + cpuThreshold + "%");
+                    System.out.println("  - RAM Threshold: " + ramThreshold + "%");
                 }
             } catch (Exception e) {
                 System.err.println("Error saving configuration: " + e.getMessage());
@@ -52,8 +86,8 @@ public class SettingsServlet extends HttpServlet {
             // Redirect back to settings page with success message
             response.sendRedirect(request.getContextPath() + "/settings.jsp?saved=true");
         } else {
-            // Invalid language, redirect back
-            response.sendRedirect(request.getContextPath() + "/settings.jsp");
+            // Invalid input, redirect back with error
+            response.sendRedirect(request.getContextPath() + "/settings.jsp?error=true");
         }
     }
     

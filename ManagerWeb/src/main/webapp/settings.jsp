@@ -77,7 +77,19 @@
                         </div>
                         <% } %>
                         
+                        <% if (request.getParameter("error") != null) { %>
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="fas fa-exclamation-circle"></i> Invalid input. Please check your values.
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                        <% } %>
+                        
                         <form method="post" action="<%= request.getContextPath() %>/settings">
+                            <!-- General Settings Section -->
+                            <h5 class="mb-3">
+                                <i class="fas fa-sliders-h"></i> General Settings
+                            </h5>
+                            
                             <div class="mb-4">
                                 <label for="language" class="form-label">
                                     <i class="fas fa-language"></i> <%= Messages.get("settings.language") %>
@@ -88,6 +100,39 @@
                                 </select>
                                 <div class="form-text">
                                     <%= Messages.get("settings.select.language") %>
+                                </div>
+                            </div>
+                            
+                            <!-- Resource Monitoring Thresholds Section -->
+                            <h5 class="mb-3 mt-4">
+                                <i class="fas fa-chart-line"></i> Resource Monitoring Thresholds
+                            </h5>
+                            
+                            <%
+                                config.AppConfig appConfig = (config.AppConfig) application.getAttribute("appConfig");
+                                double cpuThreshold = appConfig != null ? appConfig.getCpuThresholdPercent() : 90.0;
+                                double ramThreshold = appConfig != null ? appConfig.getRamThresholdPercent() : 90.0;
+                            %>
+                            
+                            <div class="mb-3">
+                                <label for="cpuThreshold" class="form-label">
+                                    <i class="fas fa-microchip"></i> CPU Threshold (%)
+                                </label>
+                                <input type="number" class="form-control" id="cpuThreshold" name="cpuThreshold" 
+                                       value="<%= cpuThreshold %>" min="0" max="100" step="1" required>
+                                <div class="form-text">
+                                    Agents will receive warnings when CPU usage exceeds this threshold.
+                                </div>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label for="ramThreshold" class="form-label">
+                                    <i class="fas fa-memory"></i> RAM Threshold (%)
+                                </label>
+                                <input type="number" class="form-control" id="ramThreshold" name="ramThreshold" 
+                                       value="<%= ramThreshold %>" min="0" max="100" step="1" required>
+                                <div class="form-text">
+                                    Agents will receive warnings when RAM usage exceeds this threshold.
                                 </div>
                             </div>
                             

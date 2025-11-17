@@ -35,21 +35,6 @@ public class Logger {
     private static final String RESET = "\u001B[0m";
     private static boolean enableColors = true;
     private static boolean quietMode = false; // For CLI mode - suppress background logs
-    private static PromptRedrawer promptRedrawer = null; // Callback to redraw CLI prompt after logs
-    
-    /**
-     * Interface for redrawing the CLI prompt after a log message
-     */
-    public interface PromptRedrawer {
-        void redrawPrompt();
-    }
-    
-    /**
-     * Set the prompt redrawer callback (used in verbose CLI mode)
-     */
-    public static void setPromptRedrawer(PromptRedrawer redrawer) {
-        promptRedrawer = redrawer;
-    }
     
     /**
      * Log a message with specified level
@@ -74,10 +59,7 @@ public class Logger {
             message
         );
         
-        // Redraw prompt if callback is set (verbose CLI mode)
-        if (promptRedrawer != null) {
-            promptRedrawer.redrawPrompt();
-        }
+        // Note: CLI prompt redraw callback removed in web module
     }
     
     /**

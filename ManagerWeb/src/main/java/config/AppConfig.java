@@ -24,6 +24,10 @@ public class AppConfig {
     // User preferences
     private String language; // "en" or "vi"
     
+    // Resource monitoring thresholds
+    private double cpuThresholdPercent = 90.0;
+    private double ramThresholdPercent = 90.0;
+    
     // ============================================================================
     //                              GETTERS
     // ============================================================================
@@ -62,6 +66,14 @@ public class AppConfig {
     
     public String getLanguage() {
         return language;
+    }
+    
+    public double getCpuThresholdPercent() {
+        return cpuThresholdPercent;
+    }
+    
+    public double getRamThresholdPercent() {
+        return ramThresholdPercent;
     }
     
     // ============================================================================
@@ -104,48 +116,18 @@ public class AppConfig {
         this.language = language;
     }
     
+    public void setCpuThresholdPercent(double cpuThresholdPercent) {
+        this.cpuThresholdPercent = cpuThresholdPercent;
+    }
+    
+    public void setRamThresholdPercent(double ramThresholdPercent) {
+        this.ramThresholdPercent = ramThresholdPercent;
+    }
+    
+    // ============================================================================
     // ============================================================================
     //                           LEGACY CONSTANTS
     // ============================================================================
-    // These are kept for backward compatibility
-    
-    @Deprecated
-    public String DATABASE_URL() {
-        return databaseUrl;
-    }
-    
-    @Deprecated  
-    public String LANGUAGE() {
-        return language;
-    }
-    
-    @Deprecated
-    public int AGENT_UDP_PORT() {
-        return agentUdpPort;
-    }
-    
-    @Deprecated
-    public int AGENT_TCP_PORT() {
-        return agentTcpPort;
-    }
-    
-    @Deprecated
-    public int MANAGER_UDP_PORT() {
-        return managerUdpPort;
-    }
-    
-    @Deprecated
-    public int MANAGER_TCP_PORT() {
-        return managerTcpPort;
-    }
-    
-    @Deprecated
-    public int EXTERNAL_SCAN_PORT() {
-        return externalScanPort;
-    }
-    
-    @Deprecated
-    public int SESSION_RETRIEVING_DELAY_MS() {
-        return sessionRetrievingDelayMs;
-    }
+    // Deprecated legacy accessor methods were removed to simplify the API.
+    // If backward compatibility with external tooling is required, re-add them.
 }

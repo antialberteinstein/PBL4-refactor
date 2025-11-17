@@ -22,15 +22,15 @@ public class Messages {
     private static void initializeTranslations() {
         // English translations
         Map<String, String> en = new HashMap<>();
-        en.put("app.title", "System Monitor Manager - Web");
-        en.put("app.name", "Manager Web");
+        en.put("app.title", "System Monitor Manager");
+        en.put("app.name", "Manager");
         
         // Authentication
         en.put("auth.login", "Login");
         en.put("auth.logout", "Logout");
         en.put("auth.username", "Username");
         en.put("auth.password", "Password");
-        en.put("auth.title", "Manager Web - Login");
+        en.put("auth.title", "Manager - Login");
         en.put("auth.header", "Login to Manager");
         en.put("auth.invalid", "Invalid username or password");
         en.put("auth.welcome", "Welcome back!");
@@ -145,15 +145,15 @@ public class Messages {
         
         // Vietnamese translations
         Map<String, String> vi = new HashMap<>();
-        vi.put("app.title", "Quản Lý Giám Sát Hệ Thống - Web");
-        vi.put("app.name", "Quản Lý Web");
+        vi.put("app.title", "Quản Lý Giám Sát Hệ Thống");
+        vi.put("app.name", "Quản Lý");
         
         // Authentication
         vi.put("auth.login", "Đăng nhập");
         vi.put("auth.logout", "Đăng xuất");
         vi.put("auth.username", "Tên đăng nhập");
         vi.put("auth.password", "Mật khẩu");
-        vi.put("auth.title", "Quản Lý Web - Đăng Nhập");
+        vi.put("auth.title", "Quản Lý - Đăng Nhập");
         vi.put("auth.header", "Đăng Nhập Hệ Thống");
         vi.put("auth.invalid", "Tên đăng nhập hoặc mật khẩu không đúng");
         vi.put("auth.welcome", "Chào mừng trở lại!");

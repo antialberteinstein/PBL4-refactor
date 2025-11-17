@@ -117,6 +117,9 @@
     <!-- jQuery (for easier AJAX) -->
     <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
     
+    <!-- Remote Commands Module -->
+    <script src="<%= request.getContextPath() %>/js/remote-commands.js"></script>
+    
     <!-- Custom JS -->
     <script src="<%= request.getContextPath() %>/js/dashboard.js"></script>
 </body>

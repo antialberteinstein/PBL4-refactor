@@ -132,6 +132,9 @@
         
         // 12. Setup others modal controls
         setupOthersModalControls();
+        
+        // 13. Setup remote command buttons
+        setupRemoteCommandButtons();
     });
     
     // ============================================================================ //
@@ -1213,7 +1216,7 @@
         const $tbody = $('#processTableBody');
         
         if (filteredProcesses.length === 0) {
-            $tbody.html('<tr><td colspan="5" class="text-center text-muted">No processes match criteria</td></tr>');
+            $tbody.html('<tr><td colspan="6" class="text-center text-muted">No processes match criteria</td></tr>');
             $('#processCount').text(allProcesses.length > 0 ? `0/${allProcesses.length}` : '0');
             return;
         }
@@ -1240,6 +1243,14 @@
                 <td class="${cpuClass}">${proc.cpuUsage.toFixed(2)}%</td>
                 <td class="${ramClass}">${ramPercent}%</td>
                 <td class="${ramClass}">${ramFormatted.formatted}</td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-outline-danger kill-process-btn" 
+                            data-pid="${proc.pid}" 
+                            data-name="${escapeHtml(proc.name)}"
+                            title="Kill process">
+                        <i class="fas fa-times-circle"></i>
+                    </button>
+                </td>
             `;
             tbody.appendChild(tr);
         });
@@ -1249,7 +1260,7 @@
             const tr = document.createElement('tr');
             tr.className = 'table-info';
             tr.innerHTML = `
-                <td colspan="5" class="text-center">
+                <td colspan="6" class="text-center">
                     <small><i class="fas fa-info-circle"></i> Showing top ${displayLimit} of ${filteredProcesses.length} processes. Use filters to narrow down results.</small>
                 </td>
             `;
@@ -1815,6 +1826,57 @@
                 <i class="fas fa-exclamation-triangle"></i> ${escapeHtml(message)}
             </div>
         `);
+    }
+    
+    // ============================================================================ //
+    //                          REMOTE COMMAND HANDLERS                             //
+    // ============================================================================ //
+    
+    /**
+     * Setup remote command buttons (Kill Process, Send Message, Shutdown)
+     */
+    function setupRemoteCommandButtons() {
+        // Handle Kill Process button clicks (using event delegation for dynamically added buttons)
+        $(document).on('click', '.kill-process-btn', function(e) {
+            e.stopPropagation(); // Prevent row click event
+            
+            const pid = parseInt($(this).data('pid'));
+            const processName = $(this).data('name');
+            
+            if (!pid || !macAddress) {
+                alert('Unable to kill process: missing information');
+                return;
+            }
+            
+            RemoteCommands.killProcessWithConfirm(macAddress, pid, processName);
+        });
+        
+        // Send Message button click
+        $('#sendMessageBtn').on('click', function() {
+            if (!macAddress) {
+                alert('Agent MAC address not found');
+                return;
+            }
+            
+            RemoteCommands.sendMessageWithPrompt(macAddress);
+        });
+        
+        // Shutdown button click
+        $('#shutdownBtn').on('click', function() {
+            if (!macAddress) {
+                alert('Agent MAC address not found');
+                return;
+            }
+            
+            // Prompt for delay
+            const delayStr = prompt('Enter shutdown delay in seconds (default 60):', '60');
+            if (delayStr === null) {
+                return; // User cancelled
+            }
+            
+            const delay = parseInt(delayStr) || 60;
+            RemoteCommands.shutdownWithConfirm(macAddress, delay);
+        });
     }
     
     // Cleanup on page unload to prevent memory leaks
