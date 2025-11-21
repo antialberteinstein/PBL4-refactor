@@ -9,9 +9,14 @@ import database.SessionManager;
 import database.ProcessManager;
 import service.HostScanner;
 import service.SessionRetriever;
+import service.RemoteCommandClient;
+import service.ResourceMonitor;
+import model.Computer;
 import model.Session;
 import model.Process;
 import util.Messages;
+import config.AppConfig;
+import database.EmailManager;
 
 /**
  * AgentWindow - GUI interface for Manager application
@@ -28,6 +33,10 @@ public class AgentWindow extends JFrame {
     private final ProcessManager processManager;
     private final HostScanner hostScanner;
     private final SessionRetriever sessionRetriever;
+    private final RemoteCommandClient remoteCommandClient;
+    private final ResourceMonitor resourceMonitor;
+    private final AppConfig appConfig;
+    private final EmailManager emailManager;
     
     private JTextArea logArea;
     private JButton scanButton;
@@ -53,14 +62,25 @@ public class AgentWindow extends JFrame {
                       SessionManager sessionManager,
                       ProcessManager processManager,
                       HostScanner hostScanner,
-                      SessionRetriever sessionRetriever) {
+                      SessionRetriever sessionRetriever,
+                      RemoteCommandClient remoteCommandClient,
+                      ResourceMonitor resourceMonitor,
+                      AppConfig appConfig,
+                      EmailManager emailManager) {
         this.computerManager = computerManager;
         this.sessionManager = sessionManager;
         this.processManager = processManager;
         this.hostScanner = hostScanner;
         this.sessionRetriever = sessionRetriever;
+        this.remoteCommandClient = remoteCommandClient;
+        this.resourceMonitor = resourceMonitor;
+        this.appConfig = appConfig;
+        this.emailManager = emailManager;
         
         initializeGUI();
+        
+        // Enable multiple selection for process table after GUI is initialized
+        processesList.setMultipleSelectionEnabled(true);
     }
     
     /**
@@ -190,7 +210,7 @@ public class AgentWindow extends JFrame {
      * Open settings dialog
      */
     private void openSettings() {
-        SettingsDialog dialog = new SettingsDialog(this);
+        SettingsDialog dialog = new SettingsDialog(this, appConfig, emailManager);
         dialog.setVisible(true);
     }
     
@@ -351,6 +371,25 @@ public class AgentWindow extends JFrame {
         scanButton.setToolTipText(Messages.get("window.scan.tooltip"));
         scanButton.addActionListener(e -> scanAndRefresh());
         panel.add(scanButton);
+        
+        // Kill Process button
+        JButton killProcessButton = new JButton("Kill Process");
+        killProcessButton.setToolTipText("Kill selected process(es) on the selected agent");
+        killProcessButton.addActionListener(e -> killSelectedProcesses());
+        panel.add(killProcessButton);
+        
+        // Send Message button
+        JButton sendMessageButton = new JButton("Send Message");
+        sendMessageButton.setToolTipText("Send a message to the selected agent");
+        sendMessageButton.addActionListener(e -> sendMessageToAgent());
+        panel.add(sendMessageButton);
+        
+        // Shutdown button
+        JButton shutdownButton = new JButton("Shutdown Agent");
+        shutdownButton.setToolTipText("Shutdown the selected agent computer");
+        shutdownButton.setForeground(Color.RED);
+        shutdownButton.addActionListener(e -> shutdownAgent());
+        panel.add(shutdownButton);
         
         // Clear log button
         JButton clearLogButton = new JButton(Messages.get("window.clear.log"));
@@ -653,12 +692,11 @@ public class AgentWindow extends JFrame {
             }
             
             String agentIp = computer.getIpAddress();
-            int agentPort = 5001; // Agent listens on port 5001
             
-            log("Requesting session data from Agent: " + agentIp + ":" + agentPort);
+            log("Requesting session data from Agent: " + agentIp);
             
-            // Request session data from Agent
-            sessionRetriever.sendGetSessions(macAddress, agentIp, agentPort);
+            // Request session data from Agent (port is now handled by SessionRetriever via AppConfig)
+            sessionRetriever.sendGetSessions(macAddress, agentIp);
                            
         } catch (Exception e) {
             log("ERROR requesting session data: " + e.getMessage());
@@ -700,6 +738,203 @@ public class AgentWindow extends JFrame {
         if (updateTimer != null) {
             updateTimer.stop();
             updateTimer = null;
+        }
+    }
+    
+    /**
+     * Kill selected process(es) on the selected agent
+     */
+    private void killSelectedProcesses() {
+        if (selectedAgentMac == null) {
+            JOptionPane.showMessageDialog(this, 
+                "Please select an agent first", 
+                "No Agent Selected", 
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        // Get selected process PIDs
+        long[] selectedPids = processesList.getSelectedProcessPids();
+        if (selectedPids.length == 0) {
+            JOptionPane.showMessageDialog(this, 
+                "Please select one or more processes to kill", 
+                "No Process Selected", 
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        // Confirm action
+        int confirm = JOptionPane.showConfirmDialog(this,
+            "Are you sure you want to kill " + selectedPids.length + " process(es)?",
+            "Confirm Kill Process",
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.WARNING_MESSAGE);
+            
+        if (confirm != JOptionPane.YES_OPTION) {
+            return;
+        }
+        
+        // Get agent IP
+        Computer computer = computerManager.getComputerByMac(selectedAgentMac);
+        if (computer == null) {
+            log("ERROR: Cannot find agent with MAC: " + selectedAgentMac);
+            return;
+        }
+        
+        String agentIp = computer.getIpAddress();
+        
+        // Kill each process
+        int successCount = 0;
+        for (long pid : selectedPids) {
+            boolean success = remoteCommandClient.killProcess(agentIp, (int) pid);
+            if (success) {
+                successCount++;
+                log("Killed process " + pid + " on " + agentIp);
+            } else {
+                log("Failed to kill process " + pid + " on " + agentIp);
+            }
+        }
+        
+        // Show result
+        JOptionPane.showMessageDialog(this,
+            "Successfully killed " + successCount + " of " + selectedPids.length + " process(es)",
+            "Kill Process Result",
+            JOptionPane.INFORMATION_MESSAGE);
+            
+        // Refresh session data after a short delay
+        Timer refreshTimer = new Timer(2000, e -> {
+            if (selectedAgentMac != null) {
+                updateSessionData(selectedAgentMac);
+            }
+        });
+        refreshTimer.setRepeats(false);
+        refreshTimer.start();
+    }
+    
+    /**
+     * Send message to the selected agent
+     */
+    private void sendMessageToAgent() {
+        if (selectedAgentMac == null) {
+            JOptionPane.showMessageDialog(this, 
+                "Please select an agent first", 
+                "No Agent Selected", 
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        // Get agent IP
+        Computer computer = computerManager.getComputerByMac(selectedAgentMac);
+        if (computer == null) {
+            log("ERROR: Cannot find agent with MAC: " + selectedAgentMac);
+            return;
+        }
+        
+        String agentIp = computer.getIpAddress();
+        String hostname = computer.getHostname();
+        
+        // Prompt for message
+        String message = JOptionPane.showInputDialog(this,
+            "Enter message to send to " + hostname + ":",
+            "Send Message",
+            JOptionPane.PLAIN_MESSAGE);
+            
+        if (message == null || message.trim().isEmpty()) {
+            return; // User cancelled or entered empty message
+        }
+        
+        // Send message
+        boolean success = remoteCommandClient.sendMessage(agentIp, message);
+        
+        if (success) {
+            log("Message sent to " + hostname + " (" + agentIp + ")");
+            JOptionPane.showMessageDialog(this,
+                "Message sent successfully",
+                "Success",
+                JOptionPane.INFORMATION_MESSAGE);
+        } else {
+            log("Failed to send message to " + hostname);
+            JOptionPane.showMessageDialog(this,
+                "Failed to send message",
+                "Error",
+                JOptionPane.ERROR_MESSAGE);
+        }
+    }
+    
+    /**
+     * Shutdown the selected agent
+     */
+    private void shutdownAgent() {
+        if (selectedAgentMac == null) {
+            JOptionPane.showMessageDialog(this, 
+                "Please select an agent first", 
+                "No Agent Selected", 
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        // Get agent info
+        Computer computer = computerManager.getComputerByMac(selectedAgentMac);
+        if (computer == null) {
+            log("ERROR: Cannot find agent with MAC: " + selectedAgentMac);
+            return;
+        }
+        
+        String agentIp = computer.getIpAddress();
+        String hostname = computer.getHostname();
+        
+        // Confirm action (double confirmation for safety)
+        int confirm1 = JOptionPane.showConfirmDialog(this,
+            "Are you sure you want to SHUTDOWN " + hostname + "?\\n" +
+            "This will turn off the agent computer!",
+            "Confirm Shutdown",
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.WARNING_MESSAGE);
+            
+        if (confirm1 != JOptionPane.YES_OPTION) {
+            return;
+        }
+        
+        // Second confirmation
+        int confirm2 = JOptionPane.showConfirmDialog(this,
+            "FINAL CONFIRMATION: Shutdown " + hostname + " (" + agentIp + ")?",
+            "Final Confirmation",
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.ERROR_MESSAGE);
+            
+        if (confirm2 != JOptionPane.YES_OPTION) {
+            return;
+        }
+        
+        // Prompt for delay
+        String delayStr = JOptionPane.showInputDialog(this,
+            "Shutdown delay in seconds (default 60):",
+            "60");
+            
+        int delay = 60;
+        try {
+            if (delayStr != null && !delayStr.trim().isEmpty()) {
+                delay = Integer.parseInt(delayStr.trim());
+            }
+        } catch (NumberFormatException e) {
+            delay = 60;
+        }
+        
+        // Send shutdown command
+        boolean success = remoteCommandClient.shutdown(agentIp, delay);
+        
+        if (success) {
+            log("Shutdown scheduled for " + hostname + " in " + delay + " seconds");
+            JOptionPane.showMessageDialog(this,
+                "Shutdown scheduled successfully in " + delay + " seconds",
+                "Success",
+                JOptionPane.INFORMATION_MESSAGE);
+        } else {
+            log("Failed to schedule shutdown for " + hostname);
+            JOptionPane.showMessageDialog(this,
+                "Failed to schedule shutdown",
+                "Error",
+                JOptionPane.ERROR_MESSAGE);
         }
     }
 }

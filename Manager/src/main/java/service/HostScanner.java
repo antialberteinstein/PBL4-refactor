@@ -1,5 +1,7 @@
 package service;
 
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InterfaceAddress;
@@ -15,55 +17,64 @@ import util.ProtocolManager;
 
 /**
  * Service for scanning and discovering hosts on the network
- * Improved with structured logging and better error handling
+ * Independent UDP mailbox for receiving HELLO responses
  */
-public class HostScanner {
+public class HostScanner extends Thread {
 
     private static final String COMPONENT = "HostScanner";
 
-    // This class will send a hello message to each IP in the subnet
-    // and wait for response from any Agent running on that IP.
-    // If response received, mark that IP as active host.
-    public static class Postman {
-        private NetworkMessageService postman;
-        private ProtocolManager protocolManager;
-        public Postman(NetworkMessageService postman, ProtocolManager protocolManager) {
-            this.postman = postman;
-            this.protocolManager = protocolManager;
-        }
+    private AppConfig appConfig;
+    private ProtocolManager protocolManager;
+    private DatagramSocket mailbox;
+    private List<String> hosts;
+    private SessionRetriever sessionRetriever; // For requesting computer info after discovery
 
-        public void open() throws Exception {
-            postman.open();
-        }
+    public HostScanner(AppConfig appConfig, ProtocolManager protocolManager) {
+        this.appConfig = appConfig;
+        this.protocolManager = protocolManager;
+        this.hosts = new ArrayList<>();
+    }
+    
+    public void setSessionRetriever(SessionRetriever sessionRetriever) {
+        this.sessionRetriever = sessionRetriever;
+    }
 
-        public void close() {
-            postman.close();
-        }
-
-        // Gửi hello đến broadcast IP và chờ phản hồi
-        public void sendHelloToBroadcast(String broadcastIp, int port) throws Exception {
-            String helloMessage = protocolManager.HELLO_REQUEST;
-            postman.sendMessage(helloMessage, broadcastIp, port);
-        }
-
-        public String checkMessage(String message) {
-            String prefix = protocolManager.HELLO_RESPONSE + protocolManager.SEPARATOR;
-            if (message.startsWith(prefix)) {
-                String ip = message.substring(prefix.length(), message.length());
-                return ip;
-            }
-            return null;
+    public void open() throws Exception {
+        if (mailbox == null || mailbox.isClosed()) {
+            mailbox = new DatagramSocket(appConfig.getManagerScanPort());
+            Logger.debug(COMPONENT, "HostScanner mailbox opened on port " + appConfig.getManagerScanPort());
         }
     }
-    private AppConfig appConfig;
-    private Postman postman;
-    private List<String> hosts;
 
-    public HostScanner(AppConfig appConfig, NetworkMessageService postmanService, ProtocolManager protocolManager) {
-        this.appConfig = appConfig;
-        postmanService.setHostScanner(this);
-        this.postman = new Postman(postmanService, protocolManager);
-        this.hosts = new ArrayList<>();
+    public void close() {
+        if (mailbox != null && !mailbox.isClosed()) {
+            mailbox.close();
+            Logger.debug(COMPONENT, "HostScanner mailbox closed");
+        }
+    }
+
+    // Thread run method to continuously receive HELLO responses
+    @Override
+    public void run() {
+        while (!isInterrupted()) {
+            try {
+                byte[] buffer = new byte[1024];
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                mailbox.receive(packet);
+                
+                String message = new String(packet.getData(), 0, packet.getLength());
+                checkMessage(message);
+                
+            } catch (java.net.SocketException e) {
+                if (isInterrupted() || mailbox.isClosed()) {
+                    break;
+                }
+            } catch (Exception e) {
+                if (isInterrupted()) {
+                    break;
+                }
+            }
+        }
     }
 
     public void scan() {
@@ -85,19 +96,48 @@ public class HostScanner {
 
             String broadcastIp = intToIp(broadcastInt);
             Logger.debug(COMPONENT, "Sending HELLO to broadcast address: " + broadcastIp);
-            postman.sendHelloToBroadcast(broadcastIp, appConfig.getAgentUdpPort());
+            
+            // Send HELLO request directly using own mailbox
+            String helloMessage = protocolManager.HELLO_REQUEST;
+            InetAddress receiverAddress = InetAddress.getByName(broadcastIp);
+            byte[] messageBytes = helloMessage.getBytes();
+            DatagramPacket packet = new DatagramPacket(messageBytes, messageBytes.length, 
+                                                       receiverAddress, appConfig.getAgentScanComputerPort());
+            mailbox.send(packet);
+            
         } catch (Exception e) {
             Logger.error(COMPONENT, "Error scanning hosts: " + e.getMessage());
         }
     }
 
     public String checkMessage(String message) {
-        String reply = postman.checkMessage(message);
-        if (reply != null && !hosts.contains(reply)) {
-            hosts.add(reply);
-            Logger.info(COMPONENT, "Discovered host: " + reply);
+        String prefix = protocolManager.HELLO_RESPONSE + protocolManager.SEPARATOR;
+        if (message.startsWith(prefix)) {
+            String ip = message.substring(prefix.length());
+            if (!hosts.contains(ip)) {
+                hosts.add(ip);
+                Logger.info(COMPONENT, "Discovered host: " + ip);
+                
+                // Request computer info from newly discovered Agent
+                if (sessionRetriever != null) {
+                    try {
+                        sessionRetriever.sendGetComputerInfoRequest(ip);
+                    } catch (Exception e) {
+                        Logger.error(COMPONENT, "Failed to request computer info from " + ip + ": " + e.getMessage());
+                    }
+                }
+            }
+            return ip;
         }
-        return reply;
+        return null;
+    }
+
+    public List<String> getHosts() {
+        return new ArrayList<>(hosts);
+    }
+
+    public DatagramSocket getMailbox() {
+        return mailbox;
     }
 
     // Hàm chuyển IP string -> int

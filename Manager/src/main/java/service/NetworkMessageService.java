@@ -84,9 +84,9 @@ public class NetworkMessageService extends Thread {
                 if (hostScanner != null) {
                     String ip = hostScanner.checkMessage(message);
                     if (ip != null) {
-                        // Tin nhan da duoc xu ly thanh cong.
-                        // Gui yeu cau lay thong tin may tinh cho doi phuong.
-                        sessionRetriever.sendGetComputerInfoRequest(ip, mail.getPort());
+                        // Message processed successfully
+                        // Request computer info from Agent (port is now handled by SessionRetriever)
+                        sessionRetriever.sendGetComputerInfoRequest(ip);
                         continue;
                     }
                 }

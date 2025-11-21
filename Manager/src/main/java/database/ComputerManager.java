@@ -94,6 +94,28 @@ public class ComputerManager {
     }
     
     /**
+     * Get IP address by MAC address
+     * @param macAddress MAC address to look up
+     * @return IP address or null if not found
+     */
+    public String getIpByMac(String macAddress) {
+        try (Connection conn = databaseManager.getConnection()) {
+            String sql = "SELECT ip_address FROM computer WHERE mac_address = ?";
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setString(1, macAddress);
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getString("ip_address");
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            Logger.error(COMPONENT, "Error getting IP by MAC address", e);
+        }
+        return null;
+    }
+    
+    /**
      * Get the current computer information
      * @return Computer object or null if not found
      */

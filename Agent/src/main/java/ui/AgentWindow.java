@@ -36,9 +36,11 @@ import model.Process;
 import model.Computer;
 import service.SessionRetriever;
 import service.ComputerRetriever;
+import service.CommandNotificationListener;
 import config.AppConfig;
+import javax.swing.JOptionPane;
 
-public class AgentWindow extends JFrame{
+public class AgentWindow extends JFrame implements CommandNotificationListener {
 
     public static interface AgentStartListener {
         void onAgentStarted();
@@ -301,6 +303,68 @@ public class AgentWindow extends JFrame{
 
     private static String nullToEmpty(String s) { return s == null ? "" : s; }
 
-
+    // ========================================================================
+    // CommandNotificationListener Implementation
+    // ========================================================================
+    
+    @Override
+    public void showNotification(String title, String message, String type) {
+        SwingUtilities.invokeLater(() -> {
+            int messageType;
+            switch (type) {
+                case "WARNING":
+                    messageType = JOptionPane.WARNING_MESSAGE;
+                    break;
+                case "ERROR":
+                    messageType = JOptionPane.ERROR_MESSAGE;
+                    break;
+                case "SUCCESS":
+                    messageType = JOptionPane.INFORMATION_MESSAGE;
+                    break;
+                case "INFO":
+                default:
+                    messageType = JOptionPane.INFORMATION_MESSAGE;
+                    break;
+            }
+            JOptionPane.showMessageDialog(this, message, title, messageType);
+        });
+    }
+    
+    @Override
+    public void notifyKillProcess(int pid, boolean success) {
+        SwingUtilities.invokeLater(() -> {
+            String message;
+            int messageType;
+            
+            if (success) {
+                message = "Process " + pid + " has been terminated successfully.";
+                messageType = JOptionPane.INFORMATION_MESSAGE;
+            } else {
+                message = "Failed to terminate process " + pid + ".";
+                messageType = JOptionPane.ERROR_MESSAGE;
+            }
+            
+            JOptionPane.showMessageDialog(
+                this,
+                message,
+                "Remote Command - Kill Process",
+                messageType
+            );
+        });
+    }
+    
+    @Override
+    public void notifyShutdown(int delay) {
+        SwingUtilities.invokeLater(() -> {
+            String message = "This computer will shutdown in " + delay + " seconds!\n" +
+                           "Remote shutdown command received from Manager.";
+            JOptionPane.showMessageDialog(
+                this,
+                message,
+                "SHUTDOWN WARNING",
+                JOptionPane.WARNING_MESSAGE
+            );
+        });
+    }
 
 }

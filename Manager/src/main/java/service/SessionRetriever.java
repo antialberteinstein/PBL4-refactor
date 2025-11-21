@@ -5,29 +5,26 @@ import database.ComputerManager;
 import database.ProcessManager;
 import database.SessionManager;
 import model.Computer;
+import model.Process;
 import util.Logger;
 import util.ProtocolManager;
 import model.Session;
-import model.Process;
-import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
 
-public class SessionRetriever {
+public class SessionRetriever extends Thread {
 
-    // Lop nay la mot thread dung de truy van session cua moi Computer.
+    // Thread to periodically request session data from a specific Agent
     public static class SessionRequest extends Thread {
         public String ip;
-        public int port;
         public String macAddress;
 
         private SessionRetriever retriever;
-
         private AppConfig appConfig;
 
-        public SessionRequest(String ip, int port, String macAddress, SessionRetriever retriever, AppConfig appConfig) {
+        public SessionRequest(String ip, String macAddress, SessionRetriever retriever, AppConfig appConfig) {
             this.ip = ip;
-            this.port = port;
             this.macAddress = macAddress;
             this.retriever = retriever;
             this.appConfig = appConfig;
@@ -36,7 +33,7 @@ public class SessionRetriever {
         public void run() {
             while (!isInterrupted()) {
                 try {
-                    retriever.sendGetSessions(macAddress, ip, port);
+                    retriever.sendGetSessions(macAddress, ip);
                     Thread.sleep(appConfig.getSessionRetrievingDelayMs());
                 } catch (InterruptedException e) {
                     // Thread interrupted, exit gracefully
@@ -49,46 +46,59 @@ public class SessionRetriever {
 
     }
 
-    public static class Postman {
-        private NetworkMessageService postman;
-        private ProtocolManager protocolManager;
-
-        public Postman(NetworkMessageService postman, ProtocolManager protocolManager) {
-            this.postman = postman;
-            this.protocolManager = protocolManager;
-        }
-
-        // Lay thong tin may truoc khi lay session.
-        public void requestComputerInfo(String agentIp, int port) throws Exception {
-            String request = protocolManager.GET_COMPUTER_INFO_REQUEST;
-            postman.sendMessage(request, agentIp, port);
-        }
-
-        public void requestSession(String agentIp, int port) throws Exception {
-            String request = protocolManager.GET_SESSION_REQUEST;
-            postman.sendMessage(request, agentIp, port);
-        }
-    }
-
     private final AppConfig appConfig;
-    private final Postman postman;
     private final ProtocolManager protocolManager;
-    private final NetworkMessageService networkMessageService;
     private final ComputerManager computerManager;
     private final SessionManager sessionManager;
     private final ProcessManager processManager;
+    private final DatagramSocket mailbox;
+    private final HostScanner hostScanner; // Reference for requesting computer info after discovery
     private AgentDiscoveryListener agentDiscoveryListener; // Callback for newly discovered Agents
 
-    public SessionRetriever(AppConfig appConfig, NetworkMessageService networkMessageService, ProtocolManager protocolManager, 
-                          ComputerManager computerManager, SessionManager sessionManager, ProcessManager processManager) {
+    public SessionRetriever(AppConfig appConfig, ProtocolManager protocolManager, 
+                          ComputerManager computerManager, SessionManager sessionManager,
+                          ProcessManager processManager, HostScanner hostScanner) throws Exception {
         this.appConfig = appConfig;
-        this.networkMessageService = networkMessageService;
-        this.networkMessageService.setSessionRetriever(this);
         this.protocolManager = protocolManager;
         this.computerManager = computerManager;
         this.sessionManager = sessionManager;
         this.processManager = processManager;
-        this.postman = new Postman(networkMessageService, protocolManager);
+        this.hostScanner = hostScanner;
+        this.mailbox = new DatagramSocket(appConfig.getManagerSessionPort());
+        Logger.debug("SessionRetriever", "SessionRetriever mailbox opened on port " + appConfig.getManagerSessionPort());
+    }
+
+    public void close() {
+        if (mailbox != null && !mailbox.isClosed()) {
+            mailbox.close();
+            Logger.debug("SessionRetriever", "SessionRetriever mailbox closed");
+        }
+    }
+
+    // Thread run method to continuously receive responses on SessionRetriever's port
+    @Override
+    public void run() {
+        while (!isInterrupted()) {
+            try {
+                byte[] buffer = new byte[65535]; // Large buffer for process lists
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                mailbox.receive(packet);
+                
+                String message = new String(packet.getData(), 0, packet.getLength());
+                
+                // Process as session/computer/process data
+                checkMessage(message);
+                
+            } catch (java.net.SocketException e) {
+                if (isInterrupted() || mailbox.isClosed()) {
+                    break;
+                }
+            } catch (Exception e) {
+                if (isInterrupted()) {
+                    break;
+                }
+            }
+        }
     }
 
     /**
@@ -101,19 +111,31 @@ public class SessionRetriever {
         this.agentDiscoveryListener = listener;
     }
 
-    // Goi de gui tin nhan yeu cau lay thong tin may tinh.
-    public void sendGetComputerInfoRequest(String ip, int port) throws Exception {
-        this.postman.requestComputerInfo(ip, port);
+    // Send GET_COMPUTER_INFO request to Agent (uses agentScanComputerPort from config)
+    public void sendGetComputerInfoRequest(String ip) throws Exception {
+        String request = protocolManager.GET_COMPUTER_INFO_REQUEST;
+        InetAddress receiverAddress = InetAddress.getByName(ip);
+        byte[] buffer = request.getBytes();
+        DatagramPacket packet = new DatagramPacket(buffer, buffer.length, receiverAddress, 
+                                                   appConfig.getAgentScanComputerPort());
+        mailbox.send(packet);
     }
 
-    public void sendGetSessions(String macAddress, String ip, int port) throws Exception {
-        this.postman.requestSession(ip, port);
+    // Send GET_SESSION request to Agent (uses agentSessionPort from config)
+    public void sendGetSessions(String macAddress, String ip) throws Exception {
+        String request = protocolManager.GET_SESSION_REQUEST;
+        InetAddress receiverAddress = InetAddress.getByName(ip);
+        byte[] buffer = request.getBytes();
+        DatagramPacket packet = new DatagramPacket(buffer, buffer.length, receiverAddress, 
+                                                   appConfig.getAgentSessionPort());
+        mailbox.send(packet);
     }
 
     public String checkMessage(String message) {
         String prefixComputer = protocolManager.GET_COMPUTER_INFO_RESPONSE + protocolManager.SEPARATOR;
         String prefixSession = protocolManager.GET_SESSION_RESPONSE + protocolManager.SEPARATOR;
         String prefixProcess = protocolManager.PROCESS_RESPONSE + protocolManager.SEPARATOR;
+        
         if (message.startsWith(prefixComputer)) {
             if (parseAndSaveComputerInfo(message.substring(prefixComputer.length()))) {
                 Logger.debug("SessionRetriever", "Received Computer Info: " + message);
@@ -137,67 +159,6 @@ public class SessionRetriever {
             }
         }
         return null;
-    }
-
-    // Agent co the gui mot process trong mot tin nhan.
-    private boolean parseAndSaveProcess(String data) {
-        String [] parts = data.split("\\" + protocolManager.SEPARATOR);
-
-        String macPrefix = "MAC:";
-        String timestampPrefix = "TIMESTAMP:";
-        String processPidPrefix = "PROCESS_PID:";
-        String processNamePrefix = "PROCESS_NAME:";
-        String processCpuUsagePrefix = "PROCESS_CPU_USAGE:";
-        String processRamUsagePrefix = "PROCESS_RAM_USAGE:";
-
-        Process process = new Process();
-        String macAddress = "";
-        long timestamp = 0;
-
-        for (String part : parts) {
-            if (part.startsWith(macPrefix)) {
-                macAddress = part.substring(macPrefix.length());
-            } else if (part.startsWith(processPidPrefix)) {
-                try {
-                    process.setPid(Integer.parseInt(part.substring(processPidPrefix.length())));
-                } catch (NumberFormatException e) {
-                    process.setPid(0);
-                }
-            } else if (part.startsWith(timestampPrefix)) {
-                timestamp = Long.parseLong(part.substring(timestampPrefix.length()));
-            } else if (part.startsWith(processNamePrefix)) {
-                process.setName(part.substring(processNamePrefix.length()));
-            } else if (part.startsWith(processCpuUsagePrefix)) {
-                try {
-                    process.setCpuUsage(Double.parseDouble(part.substring(processCpuUsagePrefix.length())));
-                } catch (NumberFormatException e) {
-                    process.setCpuUsage(0.0);
-                }
-            } else if (part.startsWith(processRamUsagePrefix)) {
-                try {
-                    process.setRamUsage(Long.parseLong(part.substring(processRamUsagePrefix.length())));
-                } catch (NumberFormatException e) {
-                    process.setRamUsage(0L);
-                }
-            } else {
-                // Có lỗi khi parse.
-                // Có lỗi khi parse.
-                return false;
-            }
-        }
-
-        long id = sessionManager.getSessionIdByMacAndTimestamp(macAddress, timestamp);
-
-        if (id == -1) {
-            System.out.println("No matching session found for Process with MAC: " + macAddress + " and Timestamp: " + timestamp);
-            return false;
-        }
-
-        process.setSessionId(id);
-
-        // Lưu process vào danh sách.
-        processManager.saveProcess(process);
-        return true;
     }
 
     // Agent se gui mot session trong mot tin nhan.
@@ -365,5 +326,65 @@ public class SessionRetriever {
         }
         
         return saved;
+    }
+
+    // Agent co the gui mot process trong mot tin nhan.
+    private boolean parseAndSaveProcess(String data) {
+        String [] parts = data.split("\\" + protocolManager.SEPARATOR);
+
+        String macPrefix = "MAC:";
+        String timestampPrefix = "TIMESTAMP:";
+        String processPidPrefix = "PROCESS_PID:";
+        String processNamePrefix = "PROCESS_NAME:";
+        String processCpuUsagePrefix = "PROCESS_CPU_USAGE:";
+        String processRamUsagePrefix = "PROCESS_RAM_USAGE:";
+
+        Process process = new Process();
+        String macAddress = "";
+        long timestamp = 0;
+
+        for (String part : parts) {
+            if (part.startsWith(macPrefix)) {
+                macAddress = part.substring(macPrefix.length());
+            } else if (part.startsWith(processPidPrefix)) {
+                try {
+                    process.setPid(Integer.parseInt(part.substring(processPidPrefix.length())));
+                } catch (NumberFormatException e) {
+                    process.setPid(0);
+                }
+            } else if (part.startsWith(timestampPrefix)) {
+                timestamp = Long.parseLong(part.substring(timestampPrefix.length()));
+            } else if (part.startsWith(processNamePrefix)) {
+                process.setName(part.substring(processNamePrefix.length()));
+            } else if (part.startsWith(processCpuUsagePrefix)) {
+                try {
+                    process.setCpuUsage(Double.parseDouble(part.substring(processCpuUsagePrefix.length())));
+                } catch (NumberFormatException e) {
+                    process.setCpuUsage(0.0);
+                }
+            } else if (part.startsWith(processRamUsagePrefix)) {
+                try {
+                    process.setRamUsage(Long.parseLong(part.substring(processRamUsagePrefix.length())));
+                } catch (NumberFormatException e) {
+                    process.setRamUsage(0L);
+                }
+            } else {
+                // Có lỗi khi parse.
+                return false;
+            }
+        }
+
+        long id = sessionManager.getSessionIdByMacAndTimestamp(macAddress, timestamp);
+
+        if (id == -1) {
+            System.out.println("No matching session found for Process with MAC: " + macAddress + " and Timestamp: " + timestamp);
+            return false;
+        }
+
+        process.setSessionId(id);
+
+        // Lưu process vào danh sách.
+        processManager.saveProcess(process);
+        return true;
     }
 }

@@ -60,6 +60,8 @@ public class ExternalScanServer extends Thread {
     
     private final AppConfig appConfig;
     private final HostScanner hostScanner;
+    private final RemoteCommandClient remoteCommandClient;
+    private final database.ComputerManager computerManager;
     
     
     // ============================================================================== //
@@ -79,13 +81,19 @@ public class ExternalScanServer extends Thread {
      * 
      * @param appConfig Configuration containing the TCP port
      * @param hostScanner HostScanner instance to trigger scans
+     * @param remoteCommandClient Client for sending commands to Agents
+     * @param computerManager Manager for looking up Agent IP addresses
      */
     public ExternalScanServer(
         AppConfig appConfig,
-        HostScanner hostScanner
+        HostScanner hostScanner,
+        RemoteCommandClient remoteCommandClient,
+        database.ComputerManager computerManager
     ) {
         this.appConfig = appConfig;
         this.hostScanner = hostScanner;
+        this.remoteCommandClient = remoteCommandClient;
+        this.computerManager = computerManager;
         this.running = false;
         
         // Set thread name for easier debugging
@@ -236,7 +244,7 @@ public class ExternalScanServer extends Thread {
                     return;
                 }
                 
-                command = command.trim().toUpperCase();
+                command = command.trim();
                 Logger.debug(COMPONENT, "Received command from " + clientAddress + ": " + command);
                 
                 // ### 3. Process command
@@ -263,23 +271,56 @@ public class ExternalScanServer extends Thread {
     /**
      * Process a command from client
      * 
-     * Currently only supports the SCAN command.
-     * Future enhancements could add:
-     * - STATUS: Get current scan status
-     * - STATS: Get statistics
-     * - etc.
+     * Supported commands:
+     * - SCAN: Trigger network scan
+     * - KILL_PROCESS|MAC|PID: Kill process on Agent
+     * - SHUTDOWN|MAC|DELAY: Shutdown Agent
+     * - SEND_MESSAGE|MAC|MESSAGE: Send message to Agent
      * 
-     * @param command Command string (should be trimmed and uppercase)
+     * @param command Command string (trimmed, case-sensitive for parameters)
      * @return Response string to send back to client
      */
     private String processCommand(String command) {
-        // ### 1. Check if command is SCAN
-        if (SCAN_COMMAND.equals(command)) {
+        // ### 1. Check if command is SCAN (case-insensitive)
+        if (SCAN_COMMAND.equalsIgnoreCase(command)) {
             return handleScanCommand();
         }
         
-        // ### 2. Unknown command
-        return RESPONSE_ERROR + ": Unknown command '" + command + "'. Use 'SCAN'.";
+        // ### 2. Check if command has parameters (separated by |)
+        String[] parts = command.split("\\|");
+        if (parts.length < 2) {
+            return RESPONSE_ERROR + ": Invalid command format. Use 'SCAN' or 'COMMAND|MAC|PARAMS'.";
+        }
+        
+        String commandType = parts[0].trim().toUpperCase(); // Only uppercase command type
+        String macAddress = parts[1].trim(); // Keep MAC address as-is
+        
+        // ### 3. Handle different command types
+        switch (commandType) {
+            case "KILL_PROCESS":
+                if (parts.length < 3) {
+                    return RESPONSE_ERROR + ": KILL_PROCESS requires PID. Format: KILL_PROCESS|MAC|PID";
+                }
+                return handleKillProcessCommand(macAddress, parts[2].trim());
+                
+            case "SHUTDOWN":
+                String delayStr = parts.length >= 3 ? parts[2].trim() : "60";
+                return handleShutdownCommand(macAddress, delayStr);
+                
+            case "SEND_MESSAGE":
+                if (parts.length < 3) {
+                    return RESPONSE_ERROR + ": SEND_MESSAGE requires message. Format: SEND_MESSAGE|MAC|MESSAGE";
+                }
+                // Rejoin remaining parts as message (in case message contains |)
+                StringBuilder message = new StringBuilder(parts[2]);
+                for (int i = 3; i < parts.length; i++) {
+                    message.append("|").append(parts[i]);
+                }
+                return handleSendMessageCommand(macAddress, message.toString());
+                
+            default:
+                return RESPONSE_ERROR + ": Unknown command '" + commandType + "'. Use SCAN, KILL_PROCESS, SHUTDOWN, or SEND_MESSAGE.";
+        }
     }
     
     /**
@@ -302,6 +343,112 @@ public class ExternalScanServer extends Thread {
             // Log error and return error response
             Logger.error(COMPONENT, "Error triggering scan: " + e.getMessage());
             return RESPONSE_ERROR + ": Failed to trigger scan - " + e.getMessage();
+        }
+    }
+    
+    /**
+     * Handle KILL_PROCESS command
+     * 
+     * @param macAddress MAC address of target Agent
+     * @param pidStr Process ID to kill
+     * @return Response string
+     */
+    private String handleKillProcessCommand(String macAddress, String pidStr) {
+        try {
+            // Parse PID
+            int pid = Integer.parseInt(pidStr);
+            
+            // Get Agent IP from MAC
+            String agentIp = computerManager.getIpByMac(macAddress);
+            if (agentIp == null) {
+                Logger.error(COMPONENT, "Agent not found for MAC: " + macAddress);
+                return RESPONSE_ERROR + ": Agent not found for MAC " + macAddress;
+            }
+            
+            // Send kill command to Agent
+            Logger.info(COMPONENT, "Sending KILL_PROCESS command to Agent " + macAddress + " (" + agentIp + ") for PID " + pid);
+            boolean success = remoteCommandClient.killProcess(agentIp, pid);
+            
+            if (success) {
+                return RESPONSE_OK + ": Process " + pid + " killed on Agent " + macAddress;
+            } else {
+                return RESPONSE_ERROR + ": Failed to kill process " + pid + " on Agent " + macAddress;
+            }
+            
+        } catch (NumberFormatException e) {
+            return RESPONSE_ERROR + ": Invalid PID '" + pidStr + "'. Must be a number.";
+        } catch (Exception e) {
+            Logger.error(COMPONENT, "Error handling KILL_PROCESS command: " + e.getMessage());
+            return RESPONSE_ERROR + ": " + e.getMessage();
+        }
+    }
+    
+    /**
+     * Handle SHUTDOWN command
+     * 
+     * @param macAddress MAC address of target Agent
+     * @param delayStr Delay in seconds before shutdown
+     * @return Response string
+     */
+    private String handleShutdownCommand(String macAddress, String delayStr) {
+        try {
+            // Parse delay
+            int delay = Integer.parseInt(delayStr);
+            
+            // Get Agent IP from MAC
+            String agentIp = computerManager.getIpByMac(macAddress);
+            if (agentIp == null) {
+                Logger.error(COMPONENT, "Agent not found for MAC: " + macAddress);
+                return RESPONSE_ERROR + ": Agent not found for MAC " + macAddress;
+            }
+            
+            // Send shutdown command to Agent
+            Logger.info(COMPONENT, "Sending SHUTDOWN command to Agent " + macAddress + " (" + agentIp + ") with delay " + delay + "s");
+            boolean success = remoteCommandClient.shutdown(agentIp, delay);
+            
+            if (success) {
+                return RESPONSE_OK + ": Shutdown scheduled on Agent " + macAddress + " in " + delay + " seconds";
+            } else {
+                return RESPONSE_ERROR + ": Failed to shutdown Agent " + macAddress;
+            }
+            
+        } catch (NumberFormatException e) {
+            return RESPONSE_ERROR + ": Invalid delay '" + delayStr + "'. Must be a number.";
+        } catch (Exception e) {
+            Logger.error(COMPONENT, "Error handling SHUTDOWN command: " + e.getMessage());
+            return RESPONSE_ERROR + ": " + e.getMessage();
+        }
+    }
+    
+    /**
+     * Handle SEND_MESSAGE command
+     * 
+     * @param macAddress MAC address of target Agent
+     * @param message Message to send
+     * @return Response string
+     */
+    private String handleSendMessageCommand(String macAddress, String message) {
+        try {
+            // Get Agent IP from MAC
+            String agentIp = computerManager.getIpByMac(macAddress);
+            if (agentIp == null) {
+                Logger.error(COMPONENT, "Agent not found for MAC: " + macAddress);
+                return RESPONSE_ERROR + ": Agent not found for MAC " + macAddress;
+            }
+            
+            // Send message command to Agent
+            Logger.info(COMPONENT, "Sending message to Agent " + macAddress + " (" + agentIp + "): " + message);
+            boolean success = remoteCommandClient.sendMessage(agentIp, message);
+            
+            if (success) {
+                return RESPONSE_OK + ": Message sent to Agent " + macAddress;
+            } else {
+                return RESPONSE_ERROR + ": Failed to send message to Agent " + macAddress;
+            }
+            
+        } catch (Exception e) {
+            Logger.error(COMPONENT, "Error handling SEND_MESSAGE command: " + e.getMessage());
+            return RESPONSE_ERROR + ": " + e.getMessage();
         }
     }
 }

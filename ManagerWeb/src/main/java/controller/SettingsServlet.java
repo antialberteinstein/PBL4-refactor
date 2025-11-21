@@ -2,6 +2,7 @@ package controller;
 
 import config.AppConfig;
 import config.ConfigManager;
+import database.EmailManager;
 import util.Messages;
 
 import jakarta.servlet.ServletContext;
@@ -12,12 +13,24 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
+import java.util.List;
 
 /**
  * Servlet for handling user settings
  */
 @WebServlet("/settings")
 public class SettingsServlet extends HttpServlet {
+
+    private EmailManager emailManager;
+
+    @Override
+    public void init() throws ServletException {
+        super.init();
+        AppConfig config = ConfigManager.loadConfig();
+        emailManager = new EmailManager(config.getEmailDatabaseUrl());
+        emailManager.initializeDatabase();
+        getServletContext().setAttribute("emailManager", emailManager);
+    }
     
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) 
@@ -31,6 +44,14 @@ public class SettingsServlet extends HttpServlet {
         String cpuThresholdStr = request.getParameter("cpuThreshold");
         String ramThresholdStr = request.getParameter("ramThreshold");
         
+        String email = request.getParameter("email");
+
+        if (email != null && !email.isEmpty()) {
+            emailManager.addEmail(email);
+            response.sendRedirect(request.getContextPath() + "/settings?emailAdded=true");
+            return;
+        }
+
         boolean validInput = true;
         double cpuThreshold = 90.0;
         double ramThreshold = 90.0;
@@ -84,17 +105,18 @@ public class SettingsServlet extends HttpServlet {
             }
             
             // Redirect back to settings page with success message
-            response.sendRedirect(request.getContextPath() + "/settings.jsp?saved=true");
+            response.sendRedirect(request.getContextPath() + "/settings?saved=true");
         } else {
             // Invalid input, redirect back with error
-            response.sendRedirect(request.getContextPath() + "/settings.jsp?error=true");
+            response.sendRedirect(request.getContextPath() + "/settings?error=true");
         }
     }
     
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
-        // Redirect GET requests to settings page
-        response.sendRedirect(request.getContextPath() + "/settings.jsp");
+        List<String> emails = emailManager.getAllEmails();
+        request.setAttribute("emails", emails);
+        request.getRequestDispatcher("/settings.jsp").forward(request, response);
     }
 }

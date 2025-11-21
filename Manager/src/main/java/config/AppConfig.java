@@ -10,17 +10,31 @@ public class AppConfig {
     // Database URLs
     private String databaseUrl;
     private String authDatabaseUrl;
+    private String emailDatabaseUrl;
     
-    // Network ports
-    private int agentUdpPort;
+    // Network ports - Agent side (where Agent listens)
+    private int agentScanComputerPort;  // Agent port for HELLO and GET_COMPUTER_INFO (default: 5000)
+    private int agentSessionPort;       // Agent port for GET_SESSION and processes (default: 5001)
+    
+    // Legacy Agent ports (deprecated, kept for backward compatibility)
+    @Deprecated
+    private int agentUdpPort;  // Maps to agentScanComputerPort
     private int agentTcpPort;
-    private int managerUdpPort;
+    
+    // Network ports - Manager side (where Manager listens)
+    private int managerUdpPort;  // Legacy, maps to managerScanPort
+    private int managerScanPort;      // Manager port for scan/HELLO responses (default: 6000)
+    private int managerSessionPort;   // Manager port for session/computer/process data (default: 6001)
     private int managerTcpPort;
     private int remoteCommandPort;
     private int externalScanPort;
     
     // Session settings
     private int sessionRetrievingDelayMs;
+    
+    // Alert thresholds
+    private double cpuThresholdPercent;  // CPU usage threshold (default: 90.0)
+    private double ramThresholdPercent;  // RAM usage threshold (default: 90.0)
     
     // User preferences
     private String language; // "en" or "vi"
@@ -37,8 +51,21 @@ public class AppConfig {
         return authDatabaseUrl;
     }
     
+    public String getEmailDatabaseUrl() {
+        return emailDatabaseUrl;
+    }
+    
+    public int getAgentScanComputerPort() {
+        return agentScanComputerPort;
+    }
+    
+    public int getAgentSessionPort() {
+        return agentSessionPort;
+    }
+    
+    @Deprecated
     public int getAgentUdpPort() {
-        return agentUdpPort;
+        return agentUdpPort != 0 ? agentUdpPort : agentScanComputerPort;
     }
     
     public int getAgentTcpPort() {
@@ -46,7 +73,15 @@ public class AppConfig {
     }
     
     public int getManagerUdpPort() {
-        return managerUdpPort;
+        return managerUdpPort != 0 ? managerUdpPort : managerScanPort;
+    }
+    
+    public int getManagerScanPort() {
+        return managerScanPort;
+    }
+    
+    public int getManagerSessionPort() {
+        return managerSessionPort;
     }
     
     public int getManagerTcpPort() {
@@ -65,6 +100,14 @@ public class AppConfig {
         return sessionRetrievingDelayMs;
     }
     
+    public double getCpuThresholdPercent() {
+        return cpuThresholdPercent;
+    }
+    
+    public double getRamThresholdPercent() {
+        return ramThresholdPercent;
+    }
+    
     public String getLanguage() {
         return language;
     }
@@ -81,8 +124,22 @@ public class AppConfig {
         this.authDatabaseUrl = authDatabaseUrl;
     }
     
+    public void setEmailDatabaseUrl(String emailDatabaseUrl) {
+        this.emailDatabaseUrl = emailDatabaseUrl;
+    }
+    
+    public void setAgentScanComputerPort(int agentScanComputerPort) {
+        this.agentScanComputerPort = agentScanComputerPort;
+    }
+    
+    public void setAgentSessionPort(int agentSessionPort) {
+        this.agentSessionPort = agentSessionPort;
+    }
+    
+    @Deprecated
     public void setAgentUdpPort(int agentUdpPort) {
         this.agentUdpPort = agentUdpPort;
+        this.agentScanComputerPort = agentUdpPort;  // Sync with new port
     }
     
     public void setAgentTcpPort(int agentTcpPort) {
@@ -91,6 +148,14 @@ public class AppConfig {
     
     public void setManagerUdpPort(int managerUdpPort) {
         this.managerUdpPort = managerUdpPort;
+    }
+    
+    public void setManagerScanPort(int managerScanPort) {
+        this.managerScanPort = managerScanPort;
+    }
+    
+    public void setManagerSessionPort(int managerSessionPort) {
+        this.managerSessionPort = managerSessionPort;
     }
     
     public void setManagerTcpPort(int managerTcpPort) {
@@ -109,58 +174,17 @@ public class AppConfig {
         this.sessionRetrievingDelayMs = sessionRetrievingDelayMs;
     }
     
+    public void setCpuThresholdPercent(double cpuThresholdPercent) {
+        this.cpuThresholdPercent = cpuThresholdPercent;
+    }
+    
+    public void setRamThresholdPercent(double ramThresholdPercent) {
+        this.ramThresholdPercent = ramThresholdPercent;
+    }
+    
     public void setLanguage(String language) {
         this.language = language;
     }
     
-    // ============================================================================
-    //                           LEGACY CONSTANTS
-    // ============================================================================
-    // These are kept for backward compatibility but should use getters instead
-    
-    @Deprecated
-    public String DATABASE_URL() {
-        return databaseUrl;
-    }
-    
-    @Deprecated  
-    public String LANGUAGE() {
-        return language;
-    }
-    
-    @Deprecated
-    public int AGENT_UDP_PORT() {
-        return agentUdpPort;
-    }
-    
-    @Deprecated
-    public int AGENT_TCP_PORT() {
-        return agentTcpPort;
-    }
-    
-    @Deprecated
-    public int MANAGER_UDP_PORT() {
-        return managerUdpPort;
-    }
-    
-    @Deprecated
-    public int MANAGER_TCP_PORT() {
-        return managerTcpPort;
-    }
-    
-    @Deprecated
-    public int REMOTE_COMMAND_PORT() {
-        return remoteCommandPort;
-    }
-    
-    @Deprecated
-    public int EXTERNAL_SCAN_PORT() {
-        return externalScanPort;
-    }
-    
-    @Deprecated
-    public int SESSION_RETRIEVING_DELAY_MS() {
-        return sessionRetrievingDelayMs;
-    }
+    // End of AppConfig
 }
-

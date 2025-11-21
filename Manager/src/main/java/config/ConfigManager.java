@@ -114,13 +114,25 @@ public class ConfigManager {
         AppConfig config = new AppConfig();
         config.setDatabaseUrl("jdbc:sqlite:" + dataDir + "/manager.db");
         config.setAuthDatabaseUrl("jdbc:sqlite:" + dataDir + "/auth.db");
-        config.setAgentUdpPort(5000);
+        config.setEmailDatabaseUrl("jdbc:sqlite:" + dataDir + "/emails.db");
+        
+        // Agent ports (where Agent listens)
+        config.setAgentScanComputerPort(5000);  // For HELLO and GET_COMPUTER_INFO
+        config.setAgentSessionPort(5001);       // For GET_SESSION and processes
+        config.setAgentUdpPort(5000);           // Legacy, maps to agentScanComputerPort
         config.setAgentTcpPort(4000);
-        config.setManagerUdpPort(6000);
+        
+        // Manager ports (where Manager listens)
+        config.setManagerUdpPort(6000);         // Legacy, maps to managerScanPort
+        config.setManagerScanPort(6000);        // For scan/HELLO responses
+        config.setManagerSessionPort(6001);     // For session/computer/process data
         config.setManagerTcpPort(17000);
         config.setRemoteCommandPort(9999);
         config.setExternalScanPort(8888);
+        
         config.setSessionRetrievingDelayMs(50);
+        config.setCpuThresholdPercent(90.0);  // Default CPU threshold: 90%
+        config.setRamThresholdPercent(90.0);  // Default RAM threshold: 90%
         config.setLanguage("en"); // Default to English
         
         return config;
@@ -136,13 +148,19 @@ public class ConfigManager {
         // Copy all values from new config to current config
         currentConfig.setDatabaseUrl(newConfig.getDatabaseUrl());
         currentConfig.setAuthDatabaseUrl(newConfig.getAuthDatabaseUrl());
-        currentConfig.setAgentUdpPort(newConfig.getAgentUdpPort());
+        currentConfig.setEmailDatabaseUrl(newConfig.getEmailDatabaseUrl());
+        currentConfig.setAgentScanComputerPort(newConfig.getAgentScanComputerPort());
+        currentConfig.setAgentSessionPort(newConfig.getAgentSessionPort());
         currentConfig.setAgentTcpPort(newConfig.getAgentTcpPort());
         currentConfig.setManagerUdpPort(newConfig.getManagerUdpPort());
+        currentConfig.setManagerScanPort(newConfig.getManagerScanPort());
+        currentConfig.setManagerSessionPort(newConfig.getManagerSessionPort());
         currentConfig.setManagerTcpPort(newConfig.getManagerTcpPort());
         currentConfig.setRemoteCommandPort(newConfig.getRemoteCommandPort());
         currentConfig.setExternalScanPort(newConfig.getExternalScanPort());
         currentConfig.setSessionRetrievingDelayMs(newConfig.getSessionRetrievingDelayMs());
+        currentConfig.setCpuThresholdPercent(newConfig.getCpuThresholdPercent());
+        currentConfig.setRamThresholdPercent(newConfig.getRamThresholdPercent());
         currentConfig.setLanguage(newConfig.getLanguage());
         
         System.out.println("Configuration reloaded from file");

@@ -1,5 +1,6 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ page import="util.Messages" %>
+<%@ page import="java.util.List" %>
 <!DOCTYPE html>
 <html lang="<%= Messages.getLanguage() %>">
 <head>
@@ -36,7 +37,7 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link active" href="<%= request.getContextPath() %>/settings.jsp">
+                        <a class="nav-link active" href="<%= request.getContextPath() %>/settings">
                             <i class="fas fa-cog"></i> <%= Messages.get("nav.settings") %>
                         </a>
                     </li>
@@ -80,6 +81,13 @@
                         <% if (request.getParameter("error") != null) { %>
                         <div class="alert alert-danger alert-dismissible fade show" role="alert">
                             <i class="fas fa-exclamation-circle"></i> Invalid input. Please check your values.
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                        <% } %>
+
+                        <% if (request.getParameter("emailAdded") != null) { %>
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <i class="fas fa-check-circle"></i> Email added successfully!
                             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>
                         <% } %>
@@ -145,6 +153,37 @@
                                 </button>
                             </div>
                         </form>
+                        
+                        <hr class="my-4">
+
+                        <!-- Email Management Section -->
+                        <h5 class="mb-3 mt-4">
+                            <i class="fas fa-envelope"></i> Email Management
+                        </h5>
+                        
+                        <form method="post" action="<%= request.getContextPath() %>/settings">
+                            <div class="input-group mb-3">
+                                <input type="email" class="form-control" name="email" placeholder="Enter new email" required>
+                                <button class="btn btn-success" type="submit">
+                                    <i class="fas fa-plus"></i> Add Email
+                                </button>
+                            </div>
+                        </form>
+                        
+                        <h6>Registered Emails:</h6>
+                        <% 
+                            List<String> emails = (List<String>) request.getAttribute("emails");
+                            if (emails != null && !emails.isEmpty()) {
+                        %>
+                        <ul class="list-group">
+                            <% for (String email : emails) { %>
+                            <li class="list-group-item"><%= email %></li>
+                            <% } %>
+                        </ul>
+                        <% } else { %>
+                        <p>No emails registered yet.</p>
+                        <% } %>
+                        
                     </div>
                 </div>
                 

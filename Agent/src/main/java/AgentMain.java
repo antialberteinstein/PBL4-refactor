@@ -10,13 +10,12 @@ import util.ProtocolManager;
  * - Uses Dependency Injection pattern for loose coupling
  * - Acts as the composition root where all dependencies are wired together
  * - Manages application lifecycle (initialization, running, shutdown)
- * - Agent now sends data directly to Manager without using local database
+ * - Each monitor runs as independent thread with its own UDP socket
  * 
  * Responsibilities:
  * 1. Initialize all application components with proper dependency injection
- * 2. Start scheduled tasks for data collection
- * 3. Start network message service for communication with Manager
- * 4. Handle graceful shutdown
+ * 2. Start monitor threads for handling different message types
+ * 3. Handle graceful shutdown
  */
 public class AgentMain {
 
@@ -25,10 +24,9 @@ public class AgentMain {
     private final ComputerRetriever computerRetriever;
     private final AppConfig appConfig;
     private final ProtocolManager protocolManager;
-    private final ScanningMonitor scanningMonitor;
     private final ComputerSendingMonitor computerSendingMonitor;
     private final SessionSendingMonitor sessionSendingMonitor;
-    private final NetworkMessageService networkMessageService;
+    private final RemoteCommandServer remoteCommandServer;
 
     /**
      * Constructor - Initializes all dependencies in correct order
@@ -37,7 +35,6 @@ public class AgentMain {
      * ### Step 1: Load application configuration
      * ### Step 2: Initialize data retrievers (collect system info on-demand)
      * ### Step 3: Initialize protocol handlers and monitors
-     * ### Step 4: Initialize network communication service
      */
     public AgentMain() {
         // ### Step 1: Load application configuration
@@ -50,18 +47,16 @@ public class AgentMain {
         // SessionRetriever collects CPU/RAM usage and running processes
         this.sessionRetriever = new SessionRetriever(computerRetriever);
         
-        // ### Step 3: Initialize protocol handlers and monitors
+        // ### Step 3: Initialize protocol handlers and monitors (each as independent thread)
         // ProtocolManager defines message format for Agent-Manager communication
         this.protocolManager = new ProtocolManager();
         
-        // Monitors handle specific types of incoming messages
-        this.scanningMonitor = new ScanningMonitor(protocolManager, computerRetriever);
-        this.computerSendingMonitor = new ComputerSendingMonitor(protocolManager, computerRetriever);
-        this.sessionSendingMonitor = new SessionSendingMonitor(protocolManager, sessionRetriever);
+        // Each monitor has its own UDP socket and runs in separate thread
+        this.computerSendingMonitor = new ComputerSendingMonitor(protocolManager, computerRetriever, appConfig);
+        this.sessionSendingMonitor = new SessionSendingMonitor(protocolManager, sessionRetriever, appConfig);
         
-        // ### Step 4: Initialize network service for UDP communication
-        this.networkMessageService = new NetworkMessageService(appConfig, scanningMonitor, 
-                                                               computerSendingMonitor, sessionSendingMonitor);
+        // TCP server for remote commands (kill process, shutdown, send message/warning)
+        this.remoteCommandServer = new RemoteCommandServer(appConfig, protocolManager);
     }
 
     /**
@@ -83,18 +78,24 @@ public class AgentMain {
     /**
      * Main application run method
      * Orchestrates the startup sequence:
-     * ### Step 1: Collect initial computer info (once at startup)
-     * ### Step 2: Start network service (listen for Manager requests)
-     * ### Step 3: Gracefully shutdown when interrupted
+     * ### Step 1: Start all monitor threads
+     * ### Step 2: Gracefully shutdown when interrupted
      */
     private void run(boolean gui) {
         if (gui) {
-            new AgentWindow(() -> {
+            AgentWindow window = new AgentWindow(() -> {
                 startServices();
             }, () -> {
-                networkMessageService.stopNow();
+                stopServices();
             }, sessionRetriever, computerRetriever, appConfig);
+            
+            // Set notification listener for GUI mode
+            remoteCommandServer.setNotificationListener(window);
         } else {
+            // CLI mode - notification will be printed to console
+            System.out.println("Agent running in CLI mode...");
+            System.out.println("Remote commands will be displayed here.");
+            
             startServices();
 
             shutdown();
@@ -103,13 +104,13 @@ public class AgentMain {
 
     /**
      * Gracefully shutdown all services
-     * ### Step 1: Wait for network service thread to complete
-     * ### Step 2: Close network socket
+     * ### Step 1: Wait for all monitor threads to complete
      */
     private void shutdown() {
         try {
-            networkMessageService.join();  // Wait for network thread to finish
-            networkMessageService.close();
+            computerSendingMonitor.join();
+            sessionSendingMonitor.join();
+            remoteCommandServer.join();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -118,26 +119,37 @@ public class AgentMain {
     /**
      * Start all background services
      * 
-     * ### Step 1: Collect computer info IMMEDIATELY (required for Manager requests)
-     *   - Collects hardware specs, OS info, CPU details
-     *   - Stored in-memory for fast access
-     *   - Computer info rarely changes, so collect once at startup
-     * 
-     * ### Step 2: Start UDP network service
-     *   - Listens for messages from Manager
-     *   - Responds to data requests
-     *   - Session data will be collected ON-DEMAND when Manager requests it
+     * ### Step 1: Open UDP sockets for each monitor
+     * ### Step 2: Start monitor threads
+     *   - ComputerSendingMonitor: handles HELLO_REQUEST and GET_COMPUTER_INFO_REQUEST (port 5000)
+     *   - SessionSendingMonitor: handles GET_SESSION_REQUEST (port 5001)
+     * ### Step 3: Start TCP server for remote commands (port 4000)
      */
     private void startServices() {
-        // ### Step 1: Collect computer info IMMEDIATELY (once at startup)
-        // computerRetriever.run();
-
-        // ### Step 2: Start network communication service
         try {
-            networkMessageService.open();   // Open UDP socket
-            networkMessageService.start();  // Start message listening thread
+            // ### Step 1: Open UDP sockets
+            computerSendingMonitor.open();
+            sessionSendingMonitor.open();
+            
+            // ### Step 2: Start monitor threads
+            computerSendingMonitor.start();
+            sessionSendingMonitor.start();
+            
+            // ### Step 3: Start TCP server for remote commands
+            remoteCommandServer.open();
+            remoteCommandServer.start();
+            
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    /**
+     * Stop all services
+     */
+    private void stopServices() {
+        computerSendingMonitor.close();
+        sessionSendingMonitor.close();
+        remoteCommandServer.close();
     }
 }

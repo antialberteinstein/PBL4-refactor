@@ -33,7 +33,7 @@ public class Logger {
     }
     
     private static final String RESET = "\u001B[0m";
-    private static boolean enableColors = true;
+    private static boolean colorsEnabled = true;
     private static boolean quietMode = false; // For CLI mode - suppress background logs
     private static PromptRedrawer promptRedrawer = null; // Callback to redraw CLI prompt after logs
     
@@ -61,8 +61,8 @@ public class Logger {
         }
         
         String timestamp = LocalDateTime.now().format(TIMESTAMP_FORMAT);
-        String colorCode = enableColors ? level.getColor() : "";
-        String resetCode = enableColors ? RESET : "";
+        String colorCode = colorsEnabled ? level.getColor() : "";
+        String resetCode = colorsEnabled ? RESET : "";
         
         System.out.printf("%s[%s] %s%-5s%s [%s] %s%n",
             colorCode,
@@ -129,14 +129,14 @@ public class Logger {
      * Disable color output (useful for file logging)
      */
     public static void disableColors() {
-        enableColors = false;
+        colorsEnabled = false;
     }
     
     /**
      * Enable color output
      */
     public static void enableColors() {
-        enableColors = true;
+        colorsEnabled = true;
     }
     
     /**

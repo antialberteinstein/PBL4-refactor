@@ -1,403 +1,273 @@
-# PBL4 - System Monitoring Project
+# PBL4-refactor — Hướng dẫn toàn diện
 
-A comprehensive multi-agent system monitoring application with real-time data collection, storage, and visualization across CLI, GUI, and Web interfaces.
+Tài liệu này tóm tắt cách phát triển (development), đóng gói/triển khai (deployment) và cách chạy hệ thống (Agent, Manager, ManagerWeb) cho repository PBL4-refactor.
 
-## 📋 Overview
+Nội dung chính được viết bằng tiếng Việt để dễ theo dõi trong quá trình phát triển và vận hành.
 
-This project implements a distributed system monitoring solution consisting of three main components that work together to collect, store, and visualize system metrics from multiple computers on a network.
+## Mục lục
+- Tổng quan
+- Yêu cầu tiên quyết
+- Cấu trúc repository
+- Hướng dẫn phát triển (build & run) cho từng module
+- Control Panels (CLI / GUI) — xây dựng và chạy
+- Triển khai / Packaging releases
+- Chạy deployment (Deploy scripts)
+- Ghi chú vận hành & xử lý sự cố (Troubleshooting)
+- Góp phần & phát triển mở rộng
 
-### Architecture Overview
+---
 
-```
-┌─────────────┐         ┌──────────────┐         ┌──────────────┐
-│   Agent     │ ◄─UDP──►│   Manager    │◄──HTTP──┤ ManagerWeb   │
-│  (Monitor)  │         │ (Collector)  │         │  (Dashboard) │
-└─────────────┘         └──────┬───────┘         └──────────────┘
-                               │
-                        ┌──────▼───────┐
-                        │  SQLite DB   │
-                        │ manager.db   │
-                        │  auth.db     │
-                        └──────────────┘
-```
+## Tổng quan
 
-## 🎯 Features
+Kiến trúc chính của dự án gồm ba thành phần:
 
-### Agent Module
-**System Resource Monitoring**
-- Real-time CPU usage tracking with OSHI library
-- Memory (RAM) usage monitoring
-- Active process listing with details (PID, name, CPU%, memory)
-- Automatic data reporting to Manager
-- Both CLI and GUI modes
+- Agent: thu thập dữ liệu hệ thống (CPU, RAM, process) và báo cáo về Manager.
+- Manager: thu thập, lưu trữ (SQLite) và cung cấp giao diện CLI/GUI để quản lý.
+- ManagerWeb: giao diện Web (JSP/Servlets) hiển thị dashboard và truy vấn dữ liệu từ Manager.
 
-**Key Capabilities:**
-- ✅ On-demand data collection via UDP protocol
-- ✅ Network auto-discovery support
-- ✅ Lightweight background operation
-- ✅ Cross-platform compatibility (Windows, macOS, Linux)
+Mục tiêu README này là tập hợp các hướng dẫn thực tế để bạn có thể phát triển, đóng gói và triển khai hệ thống trên môi trường thực tế.
 
-### Manager Module
-**Central Management & Storage**
+## Yêu cầu tiên quyết
 
-**CLI Mode Features:**
-- Interactive command-line interface with JLine3
-- Auto-completion for commands and parameters
-- Syntax highlighting
-- Command history
-- Extensive command set (see `Manager/README_CLI.md`)
+- Java JDK 8+ (thực tế đã test trên JDK 8, 11, 17)
+- Maven 3.6+
+- Go 1.20+ (để build ControlPanel CLI / GUI)
+- Git
+- zip (để tạo Releases bằng script)
 
-**GUI Mode Features:**
-- Real-time agent monitoring dashboard
-- CPU/RAM usage charts with JFreeChart
-- Process list visualization
-- Network scanning interface
-- Settings dialog (language selection)
-- macOS native menu bar support
+Lưu ý nền tảng: nhiều script trong `Deploy/` có cả bản `.sh` (macOS/Linux) và `.bat` (Windows). GUI Control Panel dùng thư viện Fyne và có các phụ thuộc native (OpenGL) nên cross-compile GUI có thể phức tạp.
 
-**Core Functions:**
-- ✅ Automatic agent discovery via broadcast
-- ✅ SQLite database storage (separate auth & data databases)
-- ✅ Session management with pagination
-- ✅ Authentication system (username/password)
-- ✅ External scan server (TCP:8888) for ManagerWeb integration
-- ✅ Bilingual support (English/Vietnamese)
-- ✅ JSON-based configuration system
+## Cấu trúc repository (tóm tắt)
 
-### ManagerWeb Module
-**Web Dashboard**
-- Browser-based monitoring interface
-- Real-time charts (Chart.js) for CPU/RAM trends
-- Agent overview with status indicators
-- Session history with filtering
-- Process monitoring per agent
-- Web-based network scan trigger
-- Settings page for configuration
+Các thư mục chính:
 
-**Technical Features:**
-- ✅ Jakarta Servlets + JSP architecture
-- ✅ AJAX updates for real-time data
-- ✅ Responsive design (Bootstrap-like CSS)
-- ✅ Authentication with session management
-- ✅ Shared configuration with Manager GUI
-- ✅ Auto-reload configuration (hot-reload)
+- Agent/ — mã nguồn và pom.xml cho Agent (Java)
+- Manager/ — mã nguồn và pom.xml cho Manager (Java)
+- ManagerWeb/ — webapp (JSP), pom.xml để build WAR
+- ControlPanel/ — Go-based control panels cho Agent & Manager (CLI + GUI builds)
+- Deploy/ — các script platform-specific dùng để chạy và cài đặt (Agent/Manager)
+- scripts/ — các script tiện ích (ví dụ: `create_releases.sh`)
 
-## 🚀 Quick Start
+## Hướng dẫn phát triển (build + run)
 
-### Prerequisites
-- **JDK 8+** (tested with JDK 8, 11, 17)
-- **Maven 3.6+**
-- **Network connectivity** (for agent-manager communication)
+Phần này hướng dẫn làm việc nhanh với từng module.
 
-### Build All Modules
+1) Build Agent (Java)
 
 ```bash
-# Clone repository
-git clone <repository-url>
-cd PBL4_refactor
-
-# Build Agent
 cd Agent
 mvn clean package
-# Output: target/Agent.jar
-
-# Build Manager
-cd ../Manager
-mvn clean package
-# Output: target/Manager.jar
-
-# Build ManagerWeb
-cd ../ManagerWeb
-mvn clean package
-# Output: target/ManagerWeb.war
+# kết quả: target/Agent.jar
 ```
 
-### Running the System
+2) Build Manager (Java)
 
-#### 1. Start Manager (Required First)
+```bash
+cd Manager
+mvn clean package
+# kết quả: target/Manager.jar
+```
 
-**GUI Mode (Recommended):**
+3) Build ManagerWeb (webapp)
+
+```bash
+cd ManagerWeb
+mvn clean package
+# kết quả: target/ManagerWeb.war
+```
+
+4) ControlPanel (Go) — CLI & GUI
+
+ControlPanel chứa các chương trình nhỏ bằng Go để dễ quản lý cục bộ (Control Panel cho Agent/Manager). Mỗi control panel có hai entry points được phân biệt bằng build tags `cli` và `gui`.
+
+Ví dụ build cho Manager control panel (CLI):
+
+```bash
+cd ControlPanel/Manager
+go build -tags=cli -o ManagerControlPanel-cli .
+```
+
+Và GUI (nên build trên máy chủ có hỗ trợ GUI/OpenGL):
+
+```bash
+go build -tags=gui -o ManagerControlPanel-gui .
+```
+
+Lưu ý: GUI build sử dụng `fyne.io/fyne/v2` và có thể yêu cầu thêm toolchain native khi cross-compile. Nếu gặp lỗi liên quan đến OpenGL/go-gl, hãy build GUI trực tiếp trên cùng nền tảng mục tiêu hoặc chỉ phân phối bản CLI.
+
+## Chạy trong môi trường development
+
+1) Bật Manager (bắt buộc trước khi Agent gửi dữ liệu):
+
+- GUI Mode (Manager):
+
 ```bash
 cd Manager
 java -jar target/Manager.jar --gui
 ```
 
-**CLI Mode:**
+- CLI Mode (Manager):
+
 ```bash
 java -jar target/Manager.jar
-manager> help
-manager> scan
-manager> list agents
+# dùng các lệnh tương tác: scan, list agents, help
 ```
 
-**Command Mode (Single Command):**
-```bash
-java -jar target/Manager.jar -c "scan"
-java -jar target/Manager.jar -c "list sessions -n 10"
-```
+2) Khởi động Agent(s):
 
-#### 2. Start Agent(s)
-
-**On target machines to monitor:**
 ```bash
 cd Agent
 java -jar target/Agent.jar
-# or GUI mode:
-java -jar target/Agent.jar --gui
+# hoặc GUI: java -jar target/Agent.jar --gui
 ```
 
-#### 3. Start ManagerWeb (Optional)
+3) Chạy ManagerWeb (tùy chọn):
 
-**Using Jetty Maven Plugin:**
 ```bash
 cd ManagerWeb
 mvn jetty:run
-# Access: http://localhost:8080/ManagerWeb
-# Login: admin/admin (default)
+# truy cập: http://localhost:8080/ManagerWeb
 ```
 
-**Using Tomcat:**
+## Control Panel: chi tiết (CLI & GUI)
+
+Control panel được thiết kế để gọi các script trong thư mục `Deploy/` để cài đặt hoặc khởi động các phần mềm.
+
+- Ví dụ script Manager (unix): `Deploy/Manager/run_manager_cli.sh`, `run_manager_gui.sh`, `install_deploy.sh`, `start_web.sh`.
+- ControlPanel ghi các marker files (ví dụ `.java_ok`, `.manager_running`, `.deploy_installed`, `.web_running`) vào cùng thư mục với executable để duy trì trạng thái giữa các lần chạy.
+
+CLI:
+
+- Chạy CLI build (xem phần build ở trên) và chạy `./ManagerControlPanel-cli`.
+- Menu CLI đã implement các hành động tuần tự: cài Java → chạy Manager (foreground) hoặc chạy background (độc quyền với foreground) → cài Web Deploy → start web.
+
+GUI:
+
+- GUI build phải chạy trên nền tảng có hỗ trợ GUI. GUI sẽ hiển thị các nút tuần tự và chỉ bật nút tiếp theo khi marker tương ứng tồn tại.
+
+## Triển khai / Packaging releases
+
+### Phương pháp 1: Tự động với GitHub Actions (Khuyến nghị)
+
+Repository đã được cấu hình với GitHub Actions workflow để tự động build và release khi bạn push tag:
+
 ```bash
-cp target/ManagerWeb.war $CATALINA_HOME/webapps/
-# Access: http://localhost:8080/ManagerWeb
+# Tạo và push tag version
+git tag -a v1.0.0 -m "Release version 1.0.0"
+git push origin v1.0.0
+
+# GitHub Actions sẽ tự động:
+# 1. Build tất cả Java modules (Agent, Manager, ManagerWeb)
+# 2. Build Control Panels (CLI)
+# 3. Tạo packages cho các nền tảng
+# 4. Tạo GitHub Release với artifacts
 ```
 
-## 📁 Project Structure
+Workflow sẽ tạo release tự động với các file zip sẵn sàng để tải về.
 
-```
-PBL4_refactor/
-├── .gitignore                    # Git ignore configuration
-├── README.md                     # This file
-├── PRE_GIT_CHECKLIST.md         # Code quality checklist
-│
-├── Agent/                        # Agent module
-│   ├── src/main/java/
-│   │   ├── AgentMain.java       # Entry point
-│   │   ├── config/
-│   │   │   └── AppConfig.java   # Configuration
-│   │   ├── model/
-│   │   │   ├── Computer.java    # Computer model
-│   │   │   ├── Session.java     # Session model
-│   │   │   └── Process.java     # Process model
-│   │   ├── service/
-│   │   │   ├── SessionRetriever.java    # Data collection
-│   │   │   ├── NetworkMessageService.java
-│   │   │   └── ...
-│   │   ├── ui/
-│   │   │   └── AgentWindow.java # GUI
-│   │   └── util/
-│   │       ├── Logger.java
-│   │       └── ProtocolManager.java
-│   ├── pom.xml                  # Maven config
-│   └── REMOVED_DATABASE.md      # Architecture doc
-│
-├── Manager/                      # Manager module
-│   ├── src/main/java/
-│   │   ├── ManagerMain.java     # Entry point
-│   │   ├── cli/
-│   │   │   ├── CliInterface.java
-│   │   │   ├── CommandMode.java
-│   │   │   ├── CliCompleter.java     # Auto-completion
-│   │   │   └── CliHighlighter.java   # Syntax highlighting
-│   │   ├── config/
-│   │   │   ├── AppConfig.java        # Configuration
-│   │   │   └── ConfigManager.java    # JSON config management
-│   │   ├── database/
-│   │   │   ├── DatabaseManager.java
-│   │   │   ├── AuthRepository.java   # Authentication
-│   │   │   ├── ComputerManager.java
-│   │   │   ├── SessionManager.java
-│   │   │   └── ProcessManager.java
-│   │   ├── model/
-│   │   │   ├── Computer.java
-│   │   │   ├── Session.java
-│   │   │   ├── Process.java
-│   │   │   └── User.java
-│   │   ├── service/
-│   │   │   ├── HostScanner.java
-│   │   │   ├── SessionRetriever.java
-│   │   │   ├── ExternalScanServer.java
-│   │   │   └── ...
-│   │   ├── ui/
-│   │   │   ├── AgentWindow.java      # Main GUI
-│   │   │   ├── ChartPanel.java       # Charts
-│   │   │   └── SettingsDialog.java   # Settings
-│   │   └── util/
-│   │       ├── Messages.java         # i18n
-│   │       └── Logger.java
-│   ├── pom.xml
-│   ├── README_CLI.md                 # CLI documentation
-│   ├── ARCHITECTURE.md               # Architecture overview
-│   ├── CONFIG_SYSTEM_IMPLEMENTATION.md
-│   ├── COMMAND_MODE_GUIDE.md
-│   ├── GUI_FEATURES.md
-│   └── external_scan_client.py       # Python client example
-│
-└── ManagerWeb/                   # Web interface module
-    ├── src/main/
-    │   ├── java/
-    │   │   ├── config/
-    │   │   │   ├── AppConfig.java
-    │   │   │   ├── ConfigManager.java
-    │   │   │   └── AppContextListener.java
-    │   │   ├── controller/
-    │   │   │   ├── LoginServlet.java
-    │   │   │   ├── ScanServlet.java
-    │   │   │   ├── SettingsServlet.java
-    │   │   │   └── ReloadConfigServlet.java
-    │   │   ├── model/
-    │   │   │   ├── entity/          # Data models
-    │   │   │   └── repository/      # Database access
-    │   │   ├── service/
-    │   │   │   ├── WebCommandMode.java
-    │   │   │   └── ConfigReloadService.java
-    │   │   └── util/
-    │   │       └── Messages.java    # i18n
-    │   └── webapp/
-    │       ├── index.jsp            # Dashboard
-    │       ├── agent-detail.jsp     # Agent details
-    │       ├── login.jsp
-    │       ├── settings.jsp
-    │       ├── css/                 # Stylesheets
-    │       ├── js/                  # JavaScript
-    │       └── WEB-INF/
-    │           └── web.xml
-    ├── pom.xml
-    ├── README.md
-    ├── SHARED_CONFIG_IMPLEMENTATION.md
-    ├── AUTO_RELOAD_CONFIG.md
-    └── AUTO_RELOAD_QUICKREF.md
+### Phương pháp 2: Script thủ công (Local)
+
+#### A. Automation script đầy đủ (build + đẩy lên GitHub)
+
+Script `scripts/release_to_github.sh` tự động hoá toàn bộ quy trình:
+
+**Yêu cầu:**
+- GitHub CLI (`gh`) đã cài đặt và authenticate:
+  ```bash
+  brew install gh
+  gh auth login
+  ```
+- Maven, Go, zip
+
+**Sử dụng:**
+
+```bash
+# Release bình thường
+./scripts/release_to_github.sh v1.0.0
+
+# Tạo draft release (để review trước khi publish)
+./scripts/release_to_github.sh v1.0.1 --draft
+
+# Đánh dấu là pre-release
+./scripts/release_to_github.sh v1.0.2-beta --prerelease
 ```
 
-## 🔧 Technical Architecture
+Script này sẽ:
+1. Build tất cả modules (Agent, Manager, ManagerWeb)
+2. Build Control Panels (CLI + GUI nếu có thể)
+3. Copy artifacts vào Deploy/
+4. Chạy `create_releases.sh` để tạo packages
+5. Tạo git tag
+6. Push tag lên GitHub
+7. Tạo GitHub Release và upload tất cả .zip files
 
-### Communication Protocols
+#### B. Chỉ tạo packages local (không push lên GitHub)
 
-**Agent ↔ Manager (UDP)**
-- Port: 5000 (configurable)
-- Protocol: Custom text-based protocol
-- Messages: HELLO, GET_SESSIONS, SESSION_DATA
-- Auto-discovery via broadcast
+Script: `scripts/create_releases.sh`
 
-**Manager ↔ ManagerWeb (TCP)**
-- Port: 8888 (External Scan Server)
-- Protocol: Simple text commands
-- Commands: SCAN, STATUS
-- Used for triggering network scans from web
-
-### Database Schema
-
-**manager.db** (Main database)
-```sql
--- Agents/Computers
-CREATE TABLE computers (
-    mac_address TEXT PRIMARY KEY,
-    ip_address TEXT,
-    computer_name TEXT,
-    os TEXT,
-    cpu_name TEXT,
-    total_ram REAL,
-    last_seen DATETIME
-);
-
--- Sessions (CPU/RAM snapshots)
-CREATE TABLE sessions (
-    id INTEGER PRIMARY KEY,
-    mac_address TEXT,
-    cpu_usage REAL,
-    ram_usage REAL,
-    timestamp DATETIME,
-    FOREIGN KEY(mac_address) REFERENCES computers(mac_address)
-);
-
--- Processes
-CREATE TABLE processes (
-    id INTEGER PRIMARY KEY,
-    session_id INTEGER,
-    pid INTEGER,
-    name TEXT,
-    cpu_percent REAL,
-    memory_mb REAL,
-    FOREIGN KEY(session_id) REFERENCES sessions(id)
-);
+```bash
+cd <repo-root>
+scripts/create_releases.sh 0.0.1
+# Kết quả: Releases/0.0.1/*.zip và Releases/current_version.txt cập nhật
 ```
 
-**auth.db** (Authentication database - separated for security)
-```sql
-CREATE TABLE users (
-    id INTEGER PRIMARY KEY,
-    username TEXT UNIQUE,
-    password_hash TEXT,
-    created_at DATETIME,
-    last_login DATETIME
-);
+Script này sẽ tìm các binary trong `ControlPanel/*` và các script trong `Deploy/*` để tạo gói theo nền tảng. Nếu một số artifact GUI không tồn tại trên nền tảng hiện tại, script vẫn tiếp tục và báo missing items.
+
+## Chạy deployment (Deploy scripts)
+
+Thư mục `Deploy/` chứa các script platform-specific để cài đặt và chạy dịch vụ.
+
+Ví dụ (Unix/macOS):
+
+- Cài Java (nếu cần): `Deploy/Manager/install_java.sh`
+- Chạy Manager CLI: `Deploy/Manager/run_manager_cli.sh`
+- Chạy Manager GUI: `Deploy/Manager/run_manager_gui.sh`
+- Cài deploy web (Jetty + WAR): `Deploy/Manager/install_deploy.sh`
+- Start Jetty server: `Deploy/Manager/start_web.sh`
+
+Trên Windows tương ứng là các file `.bat` cùng tên.
+
+Lưu ý: ControlPanel gọi những script này. Bạn cũng có thể chạy trực tiếp nếu muốn kiểm soát chặt chẽ hơn.
+
+## Ví dụ chạy release đã đóng gói
+
+1) Giải nén package (ví dụ cho Manager trên macOS):
+
+```bash
+unzip Releases/0.0.1/Manager-mac-arm64-0.0.1.zip -d /opt/pbl4/manager
+cd /opt/pbl4/manager
+./install_java.sh     # nếu cần
+./run_manager_cli.sh  # hoặc run_manager_gui.sh
 ```
 
-### Design Patterns
+2) Trên Windows: chạy tương ứng `.bat` scripts bằng Command Prompt hoặc PowerShell.
 
-1. **Dependency Injection**
-   - Constructor-based injection throughout
-   - No static dependencies
-   - Example: `DatabaseManager` injected into repositories
+## Xử lý sự cố (Troubleshooting)
 
-2. **Repository Pattern**
-   - Separation of data access logic
-   - `ComputerManager`, `SessionManager`, `ProcessManager`
-   - Clean interface for database operations
+- Build GUI thất bại khi cross-compile: do Fyne/OpenGL native bindings. Nếu gặp lỗi khi build GUI cho nền tảng khác, build GUI trực tiếp trên nền tảng đó hoặc chỉ phân phối bản CLI.
+- Marker/PID file không bị xóa sau stop: kiểm tra script/permissions. Marker files nằm cùng thư mục với executable — xóa thủ công nếu cần.
+- Web app không khởi động: kiểm tra log đầu ra của `start_web.sh` (hoặc Jetty/Tomcat output). Đảm bảo `ManagerWeb.war` nằm trong thư mục chờ deploy.
+- Java không detect: chạy `java -version` trên máy để đảm bảo PATH và JAVA_HOME đúng.
 
-3. **Service Layer**
-   - Business logic separated from UI
-   - `HostScanner`, `SessionRetriever`, `AuthService`
+## Góp phần & phát triển mở rộng
 
-4. **MVC (Web)**
-   - Servlets (Controller)
-   - JSP (View)
-   - Repository/Model (Model)
+- Nếu bạn muốn đóng góp, fork repo và gửi PR. Tuân thủ `PRE_GIT_CHECKLIST.md` trước khi push.
+- Thêm tests cho CLI workflows (đơn vị/integration) sẽ giúp tự động hoá QA cho ControlPanel.
 
-5. **Observer Pattern**
-   - `AgentDiscoveryListener` for network events
-   - Config change notifications in `ConfigReloadService`
+## Liên hệ
 
-## ⚙️ Configuration System
+- Người duy trì: antialberteinstein
+- Repo: PBL4-refactor (branch mặc định: main)
 
-### Shared Configuration
+---
 
-Both Manager and ManagerWeb share the same configuration file:
+Nếu bạn muốn, tôi có thể bổ sung:
 
-**Location:** `~/PBL4DATA/config.json`
+- Hướng dẫn chi tiết để cross-compile GUI cho từng nền tảng (macOS/Linux/Windows).
+- Các script systemd/service plist example để chạy Manager/Agent như dịch vụ nền trên Linux/macOS.
+- Thêm README cụ thể cho `ControlPanel/` (cách build release cho Agent/Manager control panels).
 
-**Example:**
-```json
-{
-  "databaseUrl": "jdbc:sqlite:~/PBL4DATA/manager.db",
-  "authDatabaseUrl": "jdbc:sqlite:~/PBL4DATA/auth.db",
-  "agentUdpPort": 5000,
-  "agentTcpPort": 4000,
-  "managerUdpPort": 6000,
-  "managerTcpPort": 17000,
-  "externalScanPort": 8888,
-  "sessionRetrievingDelayMs": 50,
-  "language": "en"
-}
-```
-
-### Auto-Reload Feature (ManagerWeb)
-
-ManagerWeb automatically monitors `config.json` and reloads configuration when changed by Manager GUI:
-
-- Check interval: 5 seconds
-- Automatic language synchronization
-- No restart required
-- See `ManagerWeb/AUTO_RELOAD_CONFIG.md` for details
-
-### Default Credentials
-
-**Manager/ManagerWeb:**
-- Username: `admin`
-- Password: `admin`
-- ⚠️ Change after first login in production!
-
-## 🌐 Network Configuration
+Chọn mục bạn muốn thêm và tôi sẽ cập nhật ngay. 
 
 ### Ports Used
 

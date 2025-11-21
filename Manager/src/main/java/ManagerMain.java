@@ -7,6 +7,7 @@ import config.ConfigManager;
 import database.AuthRepository;
 import database.ComputerManager;
 import database.DatabaseManager;
+import database.EmailManager;
 import database.ProcessManager;
 import database.SessionManager;
 import service.*;
@@ -41,11 +42,13 @@ public class ManagerMain implements AgentDiscoveryListener {
     private final SessionManager sessionManager;
     private final ComputerManager computerManager;
     private final AuthRepository authRepository;
+    private final EmailManager emailManager;
     private final AuthService authService;
-    private final NetworkMessageService networkMessageService;
     private final ProtocolManager protocolManager;
     private final HostScanner hostScanner;
     private final SessionRetriever sessionRetriever;
+    private final RemoteCommandClient remoteCommandClient;
+    private final ResourceMonitor resourceMonitor;
     private final ExternalScanServer externalScanServer;
     private final List<SessionRetriever.SessionRequest> sessionRequestThreads;
     private final Scanner scanner;
@@ -73,6 +76,8 @@ public class ManagerMain implements AgentDiscoveryListener {
         this.processManager = new ProcessManager(databaseManager);
         this.sessionManager = new SessionManager(databaseManager, processManager);
         this.computerManager = new ComputerManager(databaseManager);
+        this.emailManager = new EmailManager(appConfig.getEmailDatabaseUrl());
+        emailManager.initializeDatabase();
         
         // ### Step 2.5: Initialize authentication database (separate from main database)
         DatabaseManager authDatabaseManager = new DatabaseManager(appConfig.getAuthDatabaseUrl());
@@ -82,22 +87,36 @@ public class ManagerMain implements AgentDiscoveryListener {
         authService.initializeDefaultAdmin(); // Create default admin account if needed
         
         // ### Step 3: Initialize network services
-        this.networkMessageService = new NetworkMessageService(appConfig);
         this.protocolManager = new ProtocolManager();
         
         // ### Step 4: Initialize discovery and data collection
-        // HostScanner discovers new Agents on network
-        this.hostScanner = new HostScanner(appConfig, networkMessageService, protocolManager);
+        // HostScanner discovers new Agents on network (port 6000)
+        this.hostScanner = new HostScanner(appConfig, protocolManager);
         
-        // SessionRetriever requests and stores session data from Agents
+        // SessionRetriever requests and stores session/computer/process data from Agents (port 6001)
         // NOTE: SessionRetriever constructor queries DB, so tables must exist first
-        this.sessionRetriever = new SessionRetriever(appConfig, networkMessageService, protocolManager, 
-                                                     computerManager, sessionManager, processManager);
-        this.sessionRetriever.setAgentDiscoveryListener(this); // Register for Agent discovery callbacks
+        try {
+            this.sessionRetriever = new SessionRetriever(appConfig, protocolManager, 
+                                                         computerManager, sessionManager, processManager, hostScanner);
+            this.sessionRetriever.setAgentDiscoveryListener(this); // Register for Agent discovery callbacks
+            
+            // Wire HostScanner to SessionRetriever for requesting computer info
+            this.hostScanner.setSessionRetriever(sessionRetriever);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to initialize network services: " + e.getMessage(), e);
+        }
+        
+        // ### Step 4.5: Initialize Remote Command Client
+        // TCP client for sending commands to Agents (kill process, shutdown, send message)
+        this.remoteCommandClient = new RemoteCommandClient(appConfig, protocolManager);
+        
+        // ### Step 4.6: Initialize Resource Monitor
+        // Background thread to monitor CPU/RAM usage and send warnings
+        this.resourceMonitor = new ResourceMonitor(appConfig, sessionManager, computerManager, remoteCommandClient);
         
         // ### Step 5: Initialize External Scan Server
         // TCP server that accepts external scan requests (only serves GUI/CLI modes)
-        this.externalScanServer = new ExternalScanServer(appConfig, hostScanner);
+        this.externalScanServer = new ExternalScanServer(appConfig, hostScanner, remoteCommandClient, computerManager);
         
         this.sessionRequestThreads = new ArrayList<>();
         this.scanner = new Scanner(System.in);
@@ -292,8 +311,9 @@ public class ManagerMain implements AgentDiscoveryListener {
         
         // ### Step 1: Start network service
         // Note: Quiet mode already configured in main() before constructor
-        networkMessageService.open();   // Open UDP socket
-        networkMessageService.start();  // Start message receiver thread
+        hostScanner.open();             // Open HostScanner UDP socket (port 6000)
+        hostScanner.start();            // Start HostScanner receiver thread
+        sessionRetriever.start();       // Start SessionRetriever receiver thread (port 6001, handles session/computer/process)
 
         // ### Step 2: Start collecting data from known Agents
         startSessionRetrieving();
@@ -353,14 +373,18 @@ public class ManagerMain implements AgentDiscoveryListener {
         }
         
         // ### Step 1: Start network service
-        networkMessageService.open();   // Open UDP socket
-        networkMessageService.start();  // Start message receiver thread
+        hostScanner.open();             // Open HostScanner UDP socket (port 6000)
+        hostScanner.start();            // Start HostScanner receiver thread
+        sessionRetriever.start();       // Start SessionRetriever receiver thread (port 6001, handles session/computer/process)
         
         // ### Step 2: Start collecting data from known Agents
         startSessionRetrieving();
         
         // ### Step 3: Start External Scan Server (for remote scan requests)
         externalScanServer.start();
+        
+        // ### Step 3.5: Start Resource Monitor
+        resourceMonitor.start();
         
         // ### Step 4: Launch GUI window
         javax.swing.SwingUtilities.invokeLater(() -> {
@@ -369,7 +393,11 @@ public class ManagerMain implements AgentDiscoveryListener {
                 sessionManager, 
                 processManager, 
                 hostScanner,
-                sessionRetriever
+                sessionRetriever,
+                remoteCommandClient,
+                resourceMonitor,
+                appConfig,
+                emailManager
             );
             window.setVisible(true);
             
@@ -418,8 +446,10 @@ public class ManagerMain implements AgentDiscoveryListener {
             
             // ### Step 3 & 4: Stop network service
             System.out.print("Stopping network service...");
-            networkMessageService.interrupt(); // Stop network thread
-            networkMessageService.close();     // Close socket
+            hostScanner.interrupt();       // Stop HostScanner thread
+            sessionRetriever.interrupt();  // Stop SessionRetriever thread
+            hostScanner.close();           // Close HostScanner socket (port 6000)
+            sessionRetriever.close();      // Close SessionRetriever socket (port 6001)
             System.out.println(" Done");
             
             // ### Step 5: Close scanner
@@ -584,9 +614,9 @@ public class ManagerMain implements AgentDiscoveryListener {
             }
         }
         
-        // Create and start new SessionRequest thread
+        // Create and start new SessionRequest thread (port is now handled by appConfig)
         SessionRetriever.SessionRequest requestThread = 
-            new SessionRetriever.SessionRequest(ipAddress, appConfig.getAgentUdpPort(), macAddress, 
+            new SessionRetriever.SessionRequest(ipAddress, macAddress, 
                                                sessionRetriever, appConfig);
         requestThread.start();
         sessionRequestThreads.add(requestThread);

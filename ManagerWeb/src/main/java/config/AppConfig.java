@@ -10,6 +10,7 @@ public class AppConfig {
     // Database URLs
     private String databaseUrl;
     private String authDatabaseUrl;
+    private String emailDatabaseUrl;
     
     // Network ports
     private int agentUdpPort;
@@ -38,6 +39,10 @@ public class AppConfig {
     
     public String getAuthDatabaseUrl() {
         return authDatabaseUrl;
+    }
+    
+    public String getEmailDatabaseUrl() {
+        return emailDatabaseUrl;
     }
     
     public int getAgentUdpPort() {
@@ -86,6 +91,10 @@ public class AppConfig {
     
     public void setAuthDatabaseUrl(String authDatabaseUrl) {
         this.authDatabaseUrl = authDatabaseUrl;
+    }
+    
+    public void setEmailDatabaseUrl(String emailDatabaseUrl) {
+        this.emailDatabaseUrl = emailDatabaseUrl;
     }
     
     public void setAgentUdpPort(int agentUdpPort) {

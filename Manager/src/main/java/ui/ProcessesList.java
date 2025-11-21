@@ -171,4 +171,30 @@ public class ProcessesList extends JPanel {
         }
         return (Long) processTable.getValueAt(selectedRow, 0);
     }
+    
+    /**
+     * Get selected process PIDs (for multiple selection)
+     * @return Array of selected PIDs
+     */
+    public long[] getSelectedProcessPids() {
+        int[] selectedRows = processTable.getSelectedRows();
+        long[] pids = new long[selectedRows.length];
+        
+        for (int i = 0; i < selectedRows.length; i++) {
+            pids[i] = (Long) processTable.getValueAt(selectedRows[i], 0);
+        }
+        
+        return pids;
+    }
+    
+    /**
+     * Enable multiple selection mode
+     */
+    public void setMultipleSelectionEnabled(boolean enabled) {
+        if (enabled) {
+            processTable.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+        } else {
+            processTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        }
+    }
 }

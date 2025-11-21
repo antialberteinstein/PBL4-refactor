@@ -151,6 +151,28 @@ public class SessionManager {
     }
     
     /**
+     * Get latest session for a specific MAC address
+     * @param macAddress MAC address of the computer
+     * @return Latest Session object or null if not found
+     */
+    public Session getLatestSessionByMac(String macAddress) {
+        try (Connection conn = databaseManager.getConnection()) {
+            String sql = "SELECT * FROM session WHERE mac_address = ? ORDER BY timestamp DESC LIMIT 1";
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setString(1, macAddress);
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    if (rs.next()) {
+                        return mapResultSetToSession(rs);
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            Logger.error(COMPONENT, "Error retrieving latest session for MAC: " + macAddress, e);
+        }
+        return null;
+    }
+    
+    /**
      * Map ResultSet to Session object
      */
     private Session mapResultSetToSession(ResultSet rs) throws SQLException {

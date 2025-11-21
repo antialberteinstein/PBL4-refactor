@@ -41,7 +41,7 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="<%= request.getContextPath() %>/settings.jsp">
+                        <a class="nav-link" href="<%= request.getContextPath() %>/settings">
                             <i class="fas fa-cog"></i> <%= Messages.get("nav.settings") %>
                         </a>
                     </li>

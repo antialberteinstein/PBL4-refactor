@@ -107,14 +107,13 @@ public class ConfigManager {
      * 
      * @return Reloaded configuration
      */
-    public static AppConfig reloadConfig() {
-        System.out.println("Reloading configuration...");
+    public static AppConfig reloadConfig(AppConfig currentConfig) {
         AppConfig newConfig = loadConfig();
         
-        // Update current configuration (if needed by services)
-        AppConfig currentConfig = new AppConfig();
+        // Copy all values from new config to current config
         currentConfig.setDatabaseUrl(newConfig.getDatabaseUrl());
         currentConfig.setAuthDatabaseUrl(newConfig.getAuthDatabaseUrl());
+        currentConfig.setEmailDatabaseUrl(newConfig.getEmailDatabaseUrl());
         currentConfig.setAgentUdpPort(newConfig.getAgentUdpPort());
         currentConfig.setAgentTcpPort(newConfig.getAgentTcpPort());
         currentConfig.setManagerUdpPort(newConfig.getManagerUdpPort());
@@ -137,6 +136,9 @@ public class ConfigManager {
         AppConfig config = new AppConfig();
         config.setDatabaseUrl("jdbc:sqlite:" + dataDir + "/manager.db");
         config.setAuthDatabaseUrl("jdbc:sqlite:" + dataDir + "/auth.db");
+        config.setEmailDatabaseUrl("jdbc:sqlite:" + dataDir + "/emails.db");
+        
+        // Agent ports
         config.setAgentUdpPort(5000);
         config.setAgentTcpPort(4000);
         config.setManagerUdpPort(6000);
