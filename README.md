@@ -296,7 +296,7 @@ sequenceDiagram
     participant Manager
     participant Database
 
-    Note over Agent, Manager: 1. Giai đoạn Khám phá (UDP)
+    Note over Agent, Manager: 1. Giai đoạn Quét (UDP)
     Manager->>Agent: Gửi HELLO_REQUEST (Port 5000)
     Agent-->>Manager: Phản hồi HELLO_RESPONSE (Port 6000)
     Manager->>Database: Lưu thông tin Agent
