@@ -26,17 +26,182 @@ Mục tiêu README này là tập hợp các hướng dẫn thực tế để b�
 
 ## Yêu cầu tiên quyết
 
-- Java JDK 8+ (thực tế đã test trên JDK 8, 11, 17)
+- Java JDK 8+
 - Maven 3.6+
 - Git
 
 ## Cấu trúc repository (tóm tắt)
 
-Các thư mục chính:
+```
+PBL4-refactor/
+├── Agent/
+│   ├── pom.xml
+│   └── src/main/java/
+│       ├── AgentMain.java
+│       ├── config/
+│       │   └── AppConfig.java
+│       ├── model/
+│       │   ├── Computer.java
+│       │   ├── Process.java
+│       │   └── Session.java
+│       ├── service/
+│       │   ├── CommandNotificationListener.java
+│       │   ├── ComputerRetriever.java
+│       │   ├── ComputerSendingMonitor.java
+│       │   ├── RemoteCommandServer.java
+│       │   ├── SessionRetriever.java
+│       │   └── SessionSendingMonitor.java
+│       ├── ui/
+│       │   └── AgentWindow.java
+│       └── util/
+│           ├── Logger.java
+│           └── ProtocolManager.java
+├── Manager/
+│   ├── pom.xml
+│   └── src/main/java/
+│       ├── ManagerMain.java
+│       ├── cli/
+│       │   ├── CliCompleter.java
+│       │   ├── CliContext.java
+│       │   ├── CliHighlighter.java
+│       │   ├── CliInterface.java
+│       │   ├── CommandExecutor.java
+│       │   ├── CommandMode.java
+│       │   ├── MessageFormatter.java
+│       │   └── TableFormatter.java
+│       ├── config/
+│       │   ├── AppConfig.java
+│       │   └── ConfigManager.java
+│       ├── database/
+│       │   ├── AuthRepository.java
+│       │   ├── ComputerManager.java
+│       │   ├── DatabaseManager.java
+│       │   ├── EmailManager.java
+│       │   ├── ProcessManager.java
+│       │   └── SessionManager.java
+│       ├── model/
+│       │   ├── Computer.java
+│       │   ├── Process.java
+│       │   ├── Session.java
+│       │   └── User.java
+│       ├── service/
+│       │   ├── AgentDiscoveryListener.java
+│       │   ├── AuthService.java
+│       │   ├── ExternalScanServer.java
+│       │   ├── HostScanner.java
+│       │   ├── NetworkMessageService.java
+│       │   ├── RemoteCommandClient.java
+│       │   ├── ResourceMonitor.java
+│       │   └── SessionRetriever.java
+│       ├── ui/
+│       │   ├── AgentWindow.java
+│       │   ├── ChartPanel.java
+│       │   ├── LoginDialog.java
+│       │   ├── PieChart.java
+│       │   ├── ProcessesList.java
+│       │   └── SettingsDialog.java
+│       └── util/
+│           ├── CliStateManager.java
+│           ├── Logger.java
+│           ├── Messages.java
+│           └── ProtocolManager.java
+├── ManagerWeb/
+│   ├── pom.xml
+│   └── src/main/
+│       ├── java/
+│       │   ├── config/
+│       │   │   ├── AppConfig.java
+│       │   │   └── ConfigManager.java
+│       │   ├── controller/
+│       │   │   ├── AdminServlet.java
+│       │   │   ├── ApiServlet.java
+│       │   │   ├── AuthServlet.java
+│       │   │   ├── ConfigReloadServlet.java
+│       │   │   ├── DashboardServlet.java
+│       │   │   ├── LogoutServlet.java
+│       │   │   └── ScanServlet.java
+│       │   ├── database/
+│       │   │   ├── AuthRepository.java
+│       │   │   ├── DatabaseManager.java
+│       │   │   └── ManagerRepository.java
+│       │   ├── filter/
+│       │   │   └── AuthFilter.java
+│       │   ├── model/
+│       │   │   ├── Agent.java
+│       │   │   ├── Process.java
+│       │   │   ├── Session.java
+│       │   │   └── User.java
+│       │   ├── service/
+│       │   │   ├── AuthService.java
+│       │   │   ├── ConfigReloadService.java
+│       │   │   └── ExternalScanClient.java
+│       │   └── util/
+│       │       └── Logger.java
+│       └── webapp/
+│           ├── WEB-INF/
+│           │   └── web.xml
+│           ├── assets/
+│           │   ├── css/
+│           │   └── js/
+│           └── views/
+│               ├── dashboard.jsp
+│               ├── login.jsp
+│               └── ...
+└── README.md
+```
 
-- `Agent/` — mã nguồn và pom.xml cho Agent (Java)
-- `Manager/` — mã nguồn và pom.xml cho Manager (Java)
-- `ManagerWeb/` — webapp (JSP), pom.xml để build WAR
+## Cài đặt Môi trường
+
+Để chạy dự án này, bạn cần cài đặt **Java Development Kit (JDK) 17** trở lên và **Maven**.
+
+### 1. Windows
+- **Java (JDK 17):**
+  - Tải bộ cài đặt từ [Oracle](https://www.oracle.com/java/technologies/downloads/) hoặc [Adoptium](https://adoptium.net/).
+  - Chạy file `.exe` và làm theo hướng dẫn.
+  - Thêm biến môi trường `JAVA_HOME` trỏ đến thư mục cài đặt JDK.
+- **Maven:**
+  - Tải file zip từ [Maven Download](https://maven.apache.org/download.cgi).
+  - Giải nén vào thư mục (ví dụ: `C:\Program Files\Maven`).
+  - Thêm thư mục `bin` của Maven vào biến môi trường `PATH`.
+- **Cách nhanh (dùng Chocolatey):**
+  ```powershell
+  choco install openjdk17 maven
+  ```
+
+### 2. macOS
+- **Sử dụng Homebrew (Khuyên dùng):**
+  ```bash
+  # Cài đặt OpenJDK 17
+  brew install openjdk@17
+  
+  # Link JDK để hệ thống nhận diện
+  sudo ln -sfn /usr/local/opt/openjdk@17/libexec/openjdk.jdk /Library/Java/JavaVirtualMachines/openjdk-17.jdk
+  
+  # Cài đặt Maven
+  brew install maven
+  ```
+
+### 3. Linux (Ubuntu/Debian)
+```bash
+# Cập nhật package list
+sudo apt update
+
+# Cài đặt OpenJDK 17
+sudo apt install openjdk-17-jdk -y
+
+# Cài đặt Maven
+sudo apt install maven -y
+```
+
+### 4. Kiểm tra cài đặt
+Mở terminal (hoặc CMD/PowerShell) và chạy lệnh sau để kiểm tra:
+```bash
+java -version
+# Output mong đợi: java version "17.x.x" ...
+
+mvn -version
+# Output mong đợi: Apache Maven 3.x.x ...
+```
 
 ## Hướng dẫn phát triển (build + run)
 
@@ -102,16 +267,90 @@ mvn jetty:run
 # truy cập: http://localhost:8080/ManagerWeb
 ```
 
+## Network Architecture
+
+### 0. Tổng quan Hệ thống
+
+```mermaid
+graph TD
+    User((User))
+    Agent[Agent]
+    Manager[Manager]
+    DB[(Database)]
+    Web[ManagerWeb]
+
+    User -->|CLI/GUI| Manager
+    User -->|Web UI| Web
+    Agent <-->|UDP/TCP| Manager
+    Manager -->|Lưu| DB
+    Web -->|Truy vấn| DB
+    Web -->|TCP| Manager
+```
+
+### 1. Giao tiếp Agent ↔ Manager
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Agent
+    participant Manager
+    participant Database
+
+    Note over Agent, Manager: 1. Giai đoạn Khám phá (UDP)
+    Manager->>Agent: Gửi HELLO_REQUEST (Port 5000)
+    Agent-->>Manager: Phản hồi HELLO_RESPONSE (Port 6000)
+    Manager->>Database: Lưu thông tin Agent
+
+    Note over Agent, Manager: 2. Giai đoạn Giám sát (UDP)
+    Manager->>Agent: Yêu cầu dữ liệu (Port 5001)
+    Agent-->>Manager: Gửi dữ liệu Session/Process (Port 6001)
+    Manager->>Database: Lưu dữ liệu Session/Process
+    User->>Manager: Xem danh sách (CLI/GUI)
+    Manager->>Database: Query dữ liệu
+    Database-->>Manager: Trả về dữ liệu
+    Manager-->>User: Hiển thị thông tin
+
+    Note over Agent, Manager: 3. Giai đoạn Điều khiển (TCP)
+    User->>Manager: Ra lệnh (CLI/GUI)
+    Manager->>Agent: Lệnh từ xa [Kill/Shutdown] (Port 4000)
+    Agent-->>Manager: Kết quả lệnh
+    Manager-->>User: Hiển thị kết quả
+```
+
+### 2. Giao tiếp Manager ↔ ManagerWeb
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant ManagerWeb
+    participant Manager
+    participant Database
+
+    Note over ManagerWeb, Manager: 1. Lệnh Điều khiển (TCP)
+    User->>ManagerWeb: Gửi lệnh (Web UI)
+    ManagerWeb->>Manager: Gửi lệnh [SCAN/KILL/SHUTDOWN] (Port 8888)
+    Manager-->>ManagerWeb: Kết quả lệnh (OK/ERROR)
+    ManagerWeb-->>User: Hiển thị thông báo
+
+    Note over ManagerWeb, Database: 2. Truy xuất Dữ liệu (JDBC)
+    User->>ManagerWeb: Xem danh sách (Web UI)
+    ManagerWeb->>Database: Truy vấn Agents/Sessions/Processes
+    Database-->>ManagerWeb: Trả về dữ liệu
+    ManagerWeb-->>User: Hiển thị dữ liệu
+```
+
 ## Ports Used
 
 | Component | Port | Protocol | Purpose |
 |-----------|------|----------|---------|
-| Agent UDP | 5000 | UDP | Receive commands from Manager |
-| Agent TCP | 4000 | TCP | (Reserved for future use) |
-| Manager UDP | 6000 | UDP | Send commands to Agents |
-| Manager TCP | 17000 | TCP | (Reserved for future use) |
-| External Scan | 8888 | TCP | ManagerWeb integration |
-| ManagerWeb | 8080 | HTTP | Web interface (Jetty default) |
+| **Agent** | 5000 | UDP | Listen for Discovery (HELLO) & Info Requests |
+| **Agent** | 5001 | UDP | Listen for Session Data Requests |
+| **Agent** | 4000 | TCP | Listen for Remote Commands (Kill, Shutdown) |
+| **Manager** | 6000 | UDP | Receive Discovery Responses |
+| **Manager** | 6001 | UDP | Receive Session Data |
+| **Manager** | 8888 | TCP | External Scan Server (for ManagerWeb) |
+| **Manager** | 17000| TCP | (Reserved / Unused) |
+| **ManagerWeb** | 8080 | HTTP | Web interface (Jetty default) |
 
 ### Firewall Configuration
 
@@ -119,9 +358,12 @@ For proper operation, ensure these ports are open:
 ```bash
 # On machines running Agent
 sudo ufw allow 5000/udp
+sudo ufw allow 5001/udp
+sudo ufw allow 4000/tcp
 
 # On machine running Manager
 sudo ufw allow 6000/udp
+sudo ufw allow 6001/udp
 sudo ufw allow 8888/tcp
 sudo ufw allow 8080/tcp  # If running ManagerWeb
 ```
@@ -339,46 +581,6 @@ mvn test
    - Config file contains database paths
    - Protect `~/PBL4DATA/` directory permissions
 
-## 🐛 Troubleshooting
-
-### Common Issues
-
-**Agent not discovered:**
-```bash
-# Check UDP port is not blocked
-netstat -an | grep 5000
-
-# Check broadcast is working
-# On Manager machine:
-java -jar Manager.jar -c "scan fast"
-```
-
-**Database locked:**
-```bash
-# Stop all Manager/ManagerWeb instances
-# Remove lock:
-rm ~/PBL4DATA/*.db-shm ~/PBL4DATA/*.db-wal
-```
-
-**ManagerWeb can't connect to Manager:**
-```bash
-# Check External Scan Server is running
-netstat -an | grep 8888
-
-# Test connection:
-telnet localhost 8888
-SCAN
-```
-
-**Config not auto-reloading:**
-```bash
-# Check ManagerWeb logs for:
-[ConfigReloadService] Started monitoring config file
-
-# Force reload:
-curl -X POST http://localhost:8080/ManagerWeb/admin/reload-config
-```
-
 
 ## 🛠️ Development
 
@@ -424,13 +626,14 @@ curl -X POST http://localhost:8080/ManagerWeb/admin/reload-config
 
 ## 👥 Contributors
 
-- **Team:** PBL4 Group
+- **Team:** Group 3 - PBL4 - Giap, Hieu, Nguyen
 - **Institution:** Da Nang University of Technology (DUT)
 - **Year:** 2025
 
 ## 📄 License
 
 Educational project for PBL4 course at DUT University.
+This project will start with licence GPL (no support for commercial use).
 
 ---
 
