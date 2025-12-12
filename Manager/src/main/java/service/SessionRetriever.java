@@ -12,6 +12,8 @@ import model.Session;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class SessionRetriever extends Thread {
 
@@ -54,6 +56,12 @@ public class SessionRetriever extends Thread {
     private final DatagramSocket mailbox;
     private final HostScanner hostScanner; // Reference for requesting computer info after discovery
     private AgentDiscoveryListener agentDiscoveryListener; // Callback for newly discovered Agents
+    
+    // Map to track active monitoring threads: MAC -> Thread
+    private final Map<String, SessionRequest> activeRequests = new ConcurrentHashMap<>();
+    
+    // Thread for synchronizing state with database
+    private Thread syncThread;
 
     public SessionRetriever(AppConfig appConfig, ProtocolManager protocolManager, 
                           ComputerManager computerManager, SessionManager sessionManager,
@@ -66,13 +74,90 @@ public class SessionRetriever extends Thread {
         this.hostScanner = hostScanner;
         this.mailbox = new DatagramSocket(appConfig.getManagerSessionPort());
         Logger.debug("SessionRetriever", "SessionRetriever mailbox opened on port " + appConfig.getManagerSessionPort());
+        
+        // Start synchronization task
+        startSyncTask();
     }
 
     public void close() {
+        // Stop all monitoring threads
+        for (SessionRequest thread : activeRequests.values()) {
+            thread.interrupt();
+        }
+        activeRequests.clear();
+        
+        // Stop sync thread
+        if (syncThread != null) {
+            syncThread.interrupt();
+        }
+        
         if (mailbox != null && !mailbox.isClosed()) {
             mailbox.close();
             Logger.debug("SessionRetriever", "SessionRetriever mailbox closed");
         }
+    }
+    
+    /**
+     * Start monitoring an Agent (create and start SessionRequest thread)
+     */
+    public void startMonitoring(String macAddress, String ipAddress) {
+        if (activeRequests.containsKey(macAddress)) {
+            Logger.debug("SessionRetriever", "Monitoring already active for Agent: " + macAddress);
+            return;
+        }
+        
+        SessionRequest requestThread = new SessionRequest(ipAddress, macAddress, this, appConfig);
+        requestThread.start();
+        activeRequests.put(macAddress, requestThread);
+        Logger.info("SessionRetriever", "Started monitoring Agent: " + macAddress + " at " + ipAddress);
+    }
+    
+    /**
+     * Stop monitoring an Agent
+     */
+    public void stopMonitoring(String macAddress) {
+        SessionRequest thread = activeRequests.remove(macAddress);
+        if (thread != null) {
+            thread.interrupt();
+            Logger.info("SessionRetriever", "Stopped monitoring Agent: " + macAddress);
+        }
+    }
+    
+    /**
+     * Start a background task to synchronize in-memory state with database.
+     * This handles cases where an Agent is deleted by another process (e.g., ManagerWeb).
+     */
+    private void startSyncTask() {
+        syncThread = new Thread(() -> {
+            while (!Thread.currentThread().isInterrupted()) {
+                try {
+                    // Check every 5 seconds
+                    Thread.sleep(5000);
+                    
+                    for (SessionRequest request : activeRequests.values()) {
+                        // Check if computer still exists in database
+                        if (computerManager.getComputerByMac(request.macAddress) == null) {
+                            Logger.info("SessionRetriever", "Agent deleted from database (external source): " + request.macAddress);
+                            
+                            // Stop monitoring
+                            stopMonitoring(request.macAddress);
+                            
+                            // Remove from HostScanner cache to allow re-discovery
+                            if (hostScanner != null) {
+                                hostScanner.removeHost(request.ip);
+                            }
+                        }
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                } catch (Exception e) {
+                    Logger.error("SessionRetriever", "Error in sync task: " + e.getMessage());
+                }
+            }
+        });
+        syncThread.setName("SessionRetriever-SyncTask");
+        syncThread.start();
     }
 
     // Thread run method to continuously receive responses on SessionRetriever's port

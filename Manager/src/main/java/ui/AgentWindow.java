@@ -40,6 +40,7 @@ public class AgentWindow extends JFrame {
     
     private JTextArea logArea;
     private JButton scanButton;
+    private JButton refreshButton;
     private JList<String> agentList;
     private DefaultListModel<String> agentListModel;
     
@@ -272,7 +273,7 @@ public class AgentWindow extends JFrame {
      * Trigger network scan
      */
     private void triggerScan() {
-        scanAndRefresh();
+        scanNetwork();
     }
     
     /**
@@ -366,11 +367,17 @@ public class AgentWindow extends JFrame {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
         panel.setBorder(BorderFactory.createTitledBorder(Messages.get("window.actions")));
         
-        // Scan & Refresh button (merged)
-        scanButton = new JButton(Messages.get("window.scan.refresh"));
+        // Scan button
+        scanButton = new JButton(Messages.get("menu.tools.scan"));
         scanButton.setToolTipText(Messages.get("window.scan.tooltip"));
-        scanButton.addActionListener(e -> scanAndRefresh());
+        scanButton.addActionListener(e -> scanNetwork());
         panel.add(scanButton);
+        
+        // Refresh button
+        refreshButton = new JButton(Messages.get("menu.view.refresh"));
+        refreshButton.setToolTipText("Refresh agent list from database");
+        refreshButton.addActionListener(e -> refreshAgentList());
+        panel.add(refreshButton);
         
         // Kill Process button
         JButton killProcessButton = new JButton("Kill Process");
@@ -395,6 +402,13 @@ public class AgentWindow extends JFrame {
         JButton clearLogButton = new JButton(Messages.get("window.clear.log"));
         clearLogButton.addActionListener(e -> logArea.setText(""));
         panel.add(clearLogButton);
+
+        // Delete Agent button
+        JButton deleteAgentButton = new JButton("Delete Agent");
+        deleteAgentButton.setToolTipText("Delete the selected agent from database");
+        deleteAgentButton.setForeground(Color.RED);
+        deleteAgentButton.addActionListener(e -> deleteAgent());
+        panel.add(deleteAgentButton);
         
         return panel;
     }
@@ -487,6 +501,14 @@ public class AgentWindow extends JFrame {
         
         JScrollPane scrollPane = new JScrollPane(agentList);
         panel.add(scrollPane, BorderLayout.CENTER);
+
+        // Add context menu
+        JPopupMenu contextMenu = new JPopupMenu();
+        JMenuItem deleteItem = new JMenuItem("Delete Agent");
+        deleteItem.addActionListener(e -> deleteAgent());
+        contextMenu.add(deleteItem);
+
+        agentList.setComponentPopupMenu(contextMenu);
         
         return panel;
     }
@@ -513,7 +535,10 @@ public class AgentWindow extends JFrame {
     /**
      * Scan network for Agents and refresh the list
      */
-    private void scanAndRefresh() {
+    /**
+     * Scan network for Agents
+     */
+    private void scanNetwork() {
         log("Scanning network for Agents...");
         scanButton.setEnabled(false);
         scanButton.setText(Messages.get("window.scanning"));
@@ -524,16 +549,17 @@ public class AgentWindow extends JFrame {
                 hostScanner.scan();
                 Thread.sleep(3000); // Wait for responses
                 SwingUtilities.invokeLater(() -> {
+                    // Auto-refresh after scan
                     refreshAgentList();
                     scanButton.setEnabled(true);
-                    scanButton.setText(Messages.get("window.scan.refresh"));
+                    scanButton.setText(Messages.get("menu.tools.scan"));
                     log("Network scan completed");
                 });
             } catch (Exception e) {
                 SwingUtilities.invokeLater(() -> {
                     log("Error during scan: " + e.getMessage());
                     scanButton.setEnabled(true);
-                    scanButton.setText(Messages.get("window.scan.refresh"));
+                    scanButton.setText(Messages.get("menu.tools.scan"));
                 });
             }
         }).start();
@@ -786,12 +812,19 @@ public class AgentWindow extends JFrame {
         // Kill each process
         int successCount = 0;
         for (long pid : selectedPids) {
-            boolean success = remoteCommandClient.killProcess(agentIp, (int) pid);
-            if (success) {
+            try {
+                remoteCommandClient.killProcess(agentIp, (int) pid);
                 successCount++;
                 log("Killed process " + pid + " on " + agentIp);
-            } else {
-                log("Failed to kill process " + pid + " on " + agentIp);
+            } catch (Exception e) {
+                log("Failed to kill process " + pid + " on " + agentIp + ": " + e.getMessage());
+                // Show error for first failure if multiple
+                if (successCount == 0 && selectedPids.length == 1) {
+                     JOptionPane.showMessageDialog(this,
+                        "Failed to kill process: " + e.getMessage(),
+                        "Error",
+                        JOptionPane.ERROR_MESSAGE);
+                }
             }
         }
         
@@ -844,18 +877,19 @@ public class AgentWindow extends JFrame {
         }
         
         // Send message
-        boolean success = remoteCommandClient.sendMessage(agentIp, message);
-        
-        if (success) {
+        try {
+            remoteCommandClient.sendMessage(agentIp, message);
+            
             log("Message sent to " + hostname + " (" + agentIp + ")");
             JOptionPane.showMessageDialog(this,
                 "Message sent successfully",
                 "Success",
                 JOptionPane.INFORMATION_MESSAGE);
-        } else {
-            log("Failed to send message to " + hostname);
+                
+        } catch (Exception e) {
+            log("Failed to send message to " + hostname + ": " + e.getMessage());
             JOptionPane.showMessageDialog(this,
-                "Failed to send message",
+                "Failed to send message: " + e.getMessage(),
                 "Error",
                 JOptionPane.ERROR_MESSAGE);
         }
@@ -921,18 +955,78 @@ public class AgentWindow extends JFrame {
         }
         
         // Send shutdown command
-        boolean success = remoteCommandClient.shutdown(agentIp, delay);
-        
-        if (success) {
+        try {
+            remoteCommandClient.shutdown(agentIp, delay);
+            
             log("Shutdown scheduled for " + hostname + " in " + delay + " seconds");
             JOptionPane.showMessageDialog(this,
                 "Shutdown scheduled successfully in " + delay + " seconds",
                 "Success",
                 JOptionPane.INFORMATION_MESSAGE);
-        } else {
-            log("Failed to schedule shutdown for " + hostname);
+                
+        } catch (Exception e) {
+            log("Failed to schedule shutdown for " + hostname + ": " + e.getMessage());
             JOptionPane.showMessageDialog(this,
-                "Failed to schedule shutdown",
+                "Failed to schedule shutdown: " + e.getMessage(),
+                "Error",
+                JOptionPane.ERROR_MESSAGE);
+        }
+    }
+    /**
+     * Delete the selected agent
+     */
+    private void deleteAgent() {
+        if (selectedAgentMac == null) {
+            JOptionPane.showMessageDialog(this, 
+                "Please select an agent first", 
+                "No Agent Selected", 
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        // Get agent info
+        model.Computer computer = computerManager.getComputerByMac(selectedAgentMac);
+        String hostname = (computer != null) ? computer.getHostname() : "Unknown";
+        String ipAddress = (computer != null) ? computer.getIpAddress() : null;
+        
+        // Confirm action
+        int confirm = JOptionPane.showConfirmDialog(this,
+            "Are you sure you want to DELETE agent " + hostname + " (" + selectedAgentMac + ")?\n" +
+            "This will remove the agent from the database.",
+            "Confirm Delete",
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.WARNING_MESSAGE);
+            
+        if (confirm != JOptionPane.YES_OPTION) {
+            return;
+        }
+        
+        // Delete agent
+        boolean success = computerManager.deleteComputer(selectedAgentMac);
+        
+        if (success) {
+            log("Agent deleted: " + selectedAgentMac);
+            
+            // Stop monitoring and remove from scan cache
+            sessionRetriever.stopMonitoring(selectedAgentMac);
+            if (ipAddress != null) {
+                hostScanner.removeHost(ipAddress);
+            }
+            
+            JOptionPane.showMessageDialog(this,
+                "Agent deleted successfully",
+                "Success",
+                JOptionPane.INFORMATION_MESSAGE);
+                
+            // Clear selection and refresh list
+            selectedAgentMac = null;
+            clearAgentDetails();
+            stopAutoUpdate();
+            refreshAgentList();
+        } else {
+            log("Failed to delete agent: " + selectedAgentMac);
+            JOptionPane.showMessageDialog(this,
+                "Failed to delete agent",
                 "Error",
                 JOptionPane.ERROR_MESSAGE);
         }

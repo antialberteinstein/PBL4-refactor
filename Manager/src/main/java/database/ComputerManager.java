@@ -249,4 +249,26 @@ public class ComputerManager {
         }
         return null;
     }
+
+    /**
+     * Delete computer by MAC address
+     * @param macAddress MAC address of the computer to delete
+     * @return true if successful
+     */
+    public boolean deleteComputer(String macAddress) {
+        try (Connection conn = databaseManager.getConnection()) {
+            String sql = "DELETE FROM computer WHERE mac_address = ?";
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setString(1, macAddress);
+                int rowsAffected = pstmt.executeUpdate();
+                if (rowsAffected > 0) {
+                    Logger.info(COMPONENT, "Computer deleted: " + macAddress);
+                    return true;
+                }
+            }
+        } catch (SQLException e) {
+            Logger.error(COMPONENT, "Error deleting computer: " + macAddress, e);
+        }
+        return false;
+    }
 }

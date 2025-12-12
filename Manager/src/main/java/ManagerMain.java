@@ -50,7 +50,6 @@ public class ManagerMain implements AgentDiscoveryListener {
     private final RemoteCommandClient remoteCommandClient;
     private final ResourceMonitor resourceMonitor;
     private final ExternalScanServer externalScanServer;
-    private final List<SessionRetriever.SessionRequest> sessionRequestThreads;
     private final Scanner scanner;
 
     /**
@@ -118,7 +117,6 @@ public class ManagerMain implements AgentDiscoveryListener {
         // TCP server that accepts external scan requests (only serves GUI/CLI modes)
         this.externalScanServer = new ExternalScanServer(appConfig, hostScanner, remoteCommandClient, computerManager);
         
-        this.sessionRequestThreads = new ArrayList<>();
         this.scanner = new Scanner(System.in);
     }
 
@@ -433,16 +431,9 @@ public class ManagerMain implements AgentDiscoveryListener {
             System.out.println(" Done");
             
             // ### Step 2: Stop all SessionRequest threads
-            System.out.print("Stopping session collection threads...");
-            for (SessionRetriever.SessionRequest thread : sessionRequestThreads) {
-                thread.interrupt(); // Signal thread to stop
-            }
-            
-            // Wait for threads to finish (with timeout)
-            for (SessionRetriever.SessionRequest thread : sessionRequestThreads) {
-                thread.join(1000); // Wait max 1 second per thread
-            }
-            System.out.println(" Done");
+            // ### Step 2: Stop all SessionRequest threads
+            // Now handled by SessionRetriever.close()
+            System.out.println("Stopping session collection threads... Done");
             
             // ### Step 3 & 4: Stop network service
             System.out.print("Stopping network service...");
@@ -592,36 +583,14 @@ public class ManagerMain implements AgentDiscoveryListener {
         Map<String, String> ipMacMap = computerManager.getAllComputerIpMap();
         
         // Create one thread per Agent
+        // Create one thread per Agent
         for (String mac : ipMacMap.keySet()) {
             String ip = ipMacMap.get(mac);
-            startSessionRequestThread(mac, ip);
+            sessionRetriever.startMonitoring(mac, ip);
         }
     }
 
-    /**
-     * Start a SessionRequest thread for a single Agent
-     * Called when a new Agent is discovered or at startup for known Agents
-     * 
-     * @param macAddress Agent's MAC address
-     * @param ipAddress Agent's IP address
-     */
-    private void startSessionRequestThread(String macAddress, String ipAddress) {
-        // Check if thread already exists for this MAC
-        for (SessionRetriever.SessionRequest thread : sessionRequestThreads) {
-            if (thread.macAddress.equals(macAddress)) {
-                System.out.println("SessionRequest thread already running for Agent: " + macAddress);
-                return;
-            }
-        }
-        
-        // Create and start new SessionRequest thread (port is now handled by appConfig)
-        SessionRetriever.SessionRequest requestThread = 
-            new SessionRetriever.SessionRequest(ipAddress, macAddress, 
-                                               sessionRetriever, appConfig);
-        requestThread.start();
-        sessionRequestThreads.add(requestThread);
-        System.out.println("Started SessionRequest thread for Agent: " + macAddress + " at " + ipAddress);
-    }
+
 
     /**
      * Implementation of AgentDiscoveryListener interface
@@ -639,6 +608,6 @@ public class ManagerMain implements AgentDiscoveryListener {
         System.out.println("MAC: " + macAddress);
         System.out.println("IP: " + ipAddress);
         System.out.println("Starting session collection...");
-        startSessionRequestThread(macAddress, ipAddress);
+        sessionRetriever.startMonitoring(macAddress, ipAddress);
     }
 }

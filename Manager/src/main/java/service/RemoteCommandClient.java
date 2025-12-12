@@ -33,9 +33,10 @@ public class RemoteCommandClient {
      * 
      * @param agentIp IP address of the Agent
      * @param command Command to send
-     * @return Response from Agent, or null if error
+     * @return Response from Agent
+     * @throws Exception If connection fails or error occurs
      */
-    private String sendCommand(String agentIp, String command) {
+    private String sendCommand(String agentIp, String command) throws Exception {
         Socket socket = null;
         try {
             // Connect to Agent TCP server
@@ -56,7 +57,7 @@ public class RemoteCommandClient {
             
         } catch (Exception e) {
             Logger.error(COMPONENT, "Error sending command to " + agentIp + ": " + e.getMessage());
-            return null;
+            throw new Exception("Failed to connect to Agent at " + agentIp + ": " + e.getMessage());
         } finally {
             if (socket != null) {
                 try {
@@ -73,19 +74,16 @@ public class RemoteCommandClient {
      * 
      * @param agentIp IP address of the Agent
      * @param pid Process ID to kill
-     * @return true if successful, false otherwise
+     * @throws Exception If command fails
      */
-    public boolean killProcess(String agentIp, int pid) {
+    public void killProcess(String agentIp, int pid) throws Exception {
         String command = protocolManager.KILL_PROCESS_REQUEST + protocolManager.SEPARATOR + "PID:" + pid;
         String response = sendCommand(agentIp, command);
         
-        if (response != null && response.contains("SUCCESS")) {
-            Logger.info(COMPONENT, "Successfully killed process " + pid + " on " + agentIp);
-            return true;
-        } else {
-            Logger.error(COMPONENT, "Failed to kill process " + pid + " on " + agentIp);
-            return false;
+        if (response == null || !response.contains("SUCCESS")) {
+            throw new Exception("Agent returned error: " + (response != null ? response : "No response"));
         }
+        Logger.info(COMPONENT, "Successfully killed process " + pid + " on " + agentIp);
     }
 
     /**
@@ -93,19 +91,16 @@ public class RemoteCommandClient {
      * 
      * @param agentIp IP address of the Agent
      * @param delaySeconds Delay in seconds before shutdown (default 60)
-     * @return true if successful, false otherwise
+     * @throws Exception If command fails
      */
-    public boolean shutdown(String agentIp, int delaySeconds) {
+    public void shutdown(String agentIp, int delaySeconds) throws Exception {
         String command = protocolManager.SHUTDOWN_REQUEST + protocolManager.SEPARATOR + "DELAY:" + delaySeconds;
         String response = sendCommand(agentIp, command);
         
-        if (response != null && response.contains("SUCCESS")) {
-            Logger.info(COMPONENT, "Shutdown scheduled on " + agentIp + " in " + delaySeconds + " seconds");
-            return true;
-        } else {
-            Logger.error(COMPONENT, "Failed to schedule shutdown on " + agentIp);
-            return false;
+        if (response == null || !response.contains("SUCCESS")) {
+            throw new Exception("Agent returned error: " + (response != null ? response : "No response"));
         }
+        Logger.info(COMPONENT, "Shutdown scheduled on " + agentIp + " in " + delaySeconds + " seconds");
     }
 
     /**
@@ -113,19 +108,16 @@ public class RemoteCommandClient {
      * 
      * @param agentIp IP address of the Agent
      * @param message Warning message to display
-     * @return true if successful, false otherwise
+     * @throws Exception If command fails
      */
-    public boolean sendWarning(String agentIp, String message) {
+    public void sendWarning(String agentIp, String message) throws Exception {
         String command = protocolManager.SEND_WARNING_REQUEST + protocolManager.SEPARATOR + "MESSAGE:" + message;
         String response = sendCommand(agentIp, command);
         
-        if (response != null && response.contains("SUCCESS")) {
-            Logger.info(COMPONENT, "Warning sent to " + agentIp);
-            return true;
-        } else {
-            Logger.error(COMPONENT, "Failed to send warning to " + agentIp);
-            return false;
+        if (response == null || !response.contains("SUCCESS")) {
+            throw new Exception("Agent returned error: " + (response != null ? response : "No response"));
         }
+        Logger.info(COMPONENT, "Warning sent to " + agentIp);
     }
 
     /**
@@ -133,18 +125,15 @@ public class RemoteCommandClient {
      * 
      * @param agentIp IP address of the Agent
      * @param message Message to display
-     * @return true if successful, false otherwise
+     * @throws Exception If command fails
      */
-    public boolean sendMessage(String agentIp, String message) {
+    public void sendMessage(String agentIp, String message) throws Exception {
         String command = protocolManager.SEND_MESSAGE_REQUEST + protocolManager.SEPARATOR + "MESSAGE:" + message;
         String response = sendCommand(agentIp, command);
         
-        if (response != null && response.contains("SUCCESS")) {
-            Logger.info(COMPONENT, "Message sent to " + agentIp);
-            return true;
-        } else {
-            Logger.error(COMPONENT, "Failed to send message to " + agentIp);
-            return false;
+        if (response == null || !response.contains("SUCCESS")) {
+            throw new Exception("Agent returned error: " + (response != null ? response : "No response"));
         }
+        Logger.info(COMPONENT, "Message sent to " + agentIp);
     }
 }

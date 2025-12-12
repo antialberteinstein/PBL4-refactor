@@ -2,13 +2,13 @@
 //                          DASHBOARD.JS - Agent Grid View                       //
 // ============================================================================== //
 
-(function() {
+(function () {
     'use strict';
-    
+
     // ============================================================================ //
     //                              CONFIGURATION                                   //
     // ============================================================================ //
-    
+
     const CONFIG = {
         refreshInterval: 5000,  // Refresh agent list every 5 seconds
         apiEndpoints: {
@@ -17,50 +17,51 @@
             sessions: (window.contextPath || '') + '/api/sessions'
         }
     };
-    
+
     // Store agent sessions data
     let agentSessions = {};
 
     // ============================================================================ //
     //                              INITIALIZATION                                  //
     // ============================================================================ //
-    
-    $(document).ready(function() {
+
+    $(document).ready(function () {
         // 1. Load agents on page load
         loadAgents();
-        
+
         // 2. Setup periodic refresh
         setInterval(loadAgents, CONFIG.refreshInterval);
-        
+
         // 3. Setup scan button
         $('#scanBtn').on('click', triggerScan);
     });
-    
+
     // ============================================================================ //
     //                              LOAD AGENTS                                     //
     // ============================================================================ //
-    
+
     /**
      * Load all agents from API and display in grid.
      */
     function loadAgents() {
         const url = CONFIG.apiEndpoints.agents;
         console.log('Loading agents from:', url);
-        
+
         $.ajax({
             url: url,
             method: 'GET',
+            cache: false, // Disable browser caching
             dataType: 'json',
-            success: function(agents) {
+            success: function (agents) {
                 console.log('Agents loaded successfully:', agents);
-                
+
                 // Load latest session for each agent
-                loadAgentSessions(agents, function() {
+                loadAgentSessions(agents, function () {
                     renderAgentGrid(agents);
                     updateAgentCount(agents.length);
                 });
             },
-            error: function(xhr, status, error) {
+            error: function (xhr, status, error) {
                 console.error('Failed to load agents:', {
                     status: xhr.status,
                     statusText: xhr.statusText,
@@ -71,7 +72,49 @@
             }
         });
     }
-    
+
+    // ... (omitted helper functions) ...
+
+    /**
+     * Delete agent.
+     */
+    function deleteAgent(macAddress) {
+        if (!confirm('Are you sure you want to delete this agent? This action cannot be undone.')) {
+            return;
+        }
+
+        const url = (window.contextPath || '') + '/api/delete-agent';
+
+        $.ajax({
+            url: url,
+            method: 'POST',
+            data: { mac: macAddress },
+            dataType: 'json',
+            success: function (response) {
+                if (response.success) {
+                    // Remove card from grid using filter for safety
+                    $('.agent-card').filter(function () {
+                        return $(this).attr('data-mac') === macAddress;
+                    }).fadeOut(function () {
+                        $(this).remove();
+                        // Update count
+                        const currentCount = parseInt($('#agentCount').text()) || 0;
+                        updateAgentCount(Math.max(0, currentCount - 1));
+
+                        // Reload agents to ensure sync
+                        loadAgents();
+                    });
+                } else {
+                    alert('Failed to delete agent: ' + response.message);
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error('Error deleting agent:', error);
+                alert('Error deleting agent. Please try again.');
+            }
+        });
+    }
+
     /**
      * Load latest sessions for all agents.
      */
@@ -80,26 +123,26 @@
             callback();
             return;
         }
-        
+
         let loaded = 0;
         const total = agents.length;
-        
-        agents.forEach(function(agent) {
-            const url = CONFIG.apiEndpoints.sessions + 
-                        '?mac=' + encodeURIComponent(agent.macAddress) + 
-                        '&latest=true';
-            
+
+        agents.forEach(function (agent) {
+            const url = CONFIG.apiEndpoints.sessions +
+                '?mac=' + encodeURIComponent(agent.macAddress) +
+                '&latest=true';
+
             $.ajax({
                 url: url,
                 method: 'GET',
                 dataType: 'json',
-                success: function(session) {
+                success: function (session) {
                     agentSessions[agent.macAddress] = session;
                 },
-                error: function() {
+                error: function () {
                     agentSessions[agent.macAddress] = null;
                 },
-                complete: function() {
+                complete: function () {
                     loaded++;
                     if (loaded === total) {
                         callback();
@@ -108,11 +151,11 @@
             });
         });
     }
-    
+
     // ============================================================================ //
     //                              RENDER AGENT GRID                               //
     // ============================================================================ //
-    
+
     /**
      * Render agent cards in grid layout.
      * 
@@ -120,7 +163,7 @@
      */
     function renderAgentGrid(agents) {
         const $grid = $('#agentGrid');
-        
+
         if (agents.length === 0) {
             $grid.html(`
                 <div class="text-center py-5 text-muted">
@@ -130,44 +173,44 @@
             `);
             return;
         }
-        
+
         // Build grid HTML
         let gridHtml = '';
-        agents.forEach(function(agent) {
+        agents.forEach(function (agent) {
             gridHtml += buildAgentCard(agent);
         });
-        
+
         $grid.html(gridHtml);
-        
+
         // Set colors for progress bars
-        agents.forEach(function(agent) {
+        agents.forEach(function (agent) {
             const session = agentSessions[agent.macAddress];
             const cpuUsage = session ? session.cpuUsage : 0;
             const ramUsageBytes = session ? session.ramUsage : 0;
             const totalRamBytes = session ? session.totalRam : 1;
             const ramUsage = totalRamBytes > 0 ? (ramUsageBytes / totalRamBytes * 100) : 0;
-            
+
             const cpuCanvasId = 'cpu-gauge-' + agent.macAddress.replace(/:/g, '');
             const ramCanvasId = 'ram-gauge-' + agent.macAddress.replace(/:/g, '');
-            
+
             setProgressBarColor(cpuCanvasId, cpuUsage, 'CPU');
             setProgressBarColor(ramCanvasId, ramUsage, 'RAM');
         });
-        
+
         // Attach click handlers
-        $('.agent-card').on('click', function() {
+        $('.agent-card').on('click', function () {
             const mac = $(this).data('mac');
             navigateToAgentDetail(mac);
         });
-        
+
         // Attach remote command button handlers
-        $('.send-message-btn').on('click', function(e) {
+        $('.send-message-btn').on('click', function (e) {
             e.stopPropagation();
             const mac = $(this).data('mac');
             RemoteCommands.sendMessageWithPrompt(mac);
         });
-        
-        $('.shutdown-btn').on('click', function(e) {
+
+        $('.shutdown-btn').on('click', function (e) {
             e.stopPropagation();
             const mac = $(this).data('mac');
             const delayStr = prompt('Enter shutdown delay in seconds (default 60):', '60');
@@ -176,12 +219,18 @@
                 RemoteCommands.shutdownWithConfirm(mac, delay);
             }
         });
+
+        $('.delete-agent-btn').on('click', function (e) {
+            e.stopPropagation();
+            const mac = $(this).data('mac');
+            deleteAgent(mac);
+        });
     }
-    
+
     // ============================================================================ //
     //                              BUILD AGENT CARD                                //
     // ============================================================================ //
-    
+
     /**
      * Build HTML for a single agent card.
      * 
@@ -191,21 +240,21 @@
     function buildAgentCard(agent) {
         // Determine OS icon
         const osIcon = getOSIcon(agent.os);
-        
+
         // Format CPU frequency
         const cpuFreq = formatFrequency(agent.cpuMaxFreq);
-        
+
         // Get latest session data
         const session = agentSessions[agent.macAddress];
         const cpuUsage = session ? session.cpuUsage : 0;
         const ramUsageBytes = session ? session.ramUsage : 0;
         const totalRamBytes = session ? session.totalRam : 1;
         const ramUsage = totalRamBytes > 0 ? (ramUsageBytes / totalRamBytes * 100) : 0;
-        
+
         // Generate unique IDs for canvas elements
         const cpuCanvasId = 'cpu-gauge-' + agent.macAddress.replace(/:/g, '');
         const ramCanvasId = 'ram-gauge-' + agent.macAddress.replace(/:/g, '');
-        
+
         return `
             <div class="agent-card" data-mac="${agent.macAddress}">
                 <div class="agent-card-header">
@@ -283,17 +332,23 @@
                                     onclick="event.stopPropagation();">
                                 <i class="fas fa-power-off"></i>
                             </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger delete-agent-btn" 
+                                    data-mac="${agent.macAddress}"
+                                    title="Delete Agent"
+                                    onclick="event.stopPropagation();">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
         `;
     }
-    
+
     // ============================================================================ //
     //                              HELPER FUNCTIONS                                //
     // ============================================================================ //
-    
+
     /**
      * Set progress bar color based on usage level.
      * 
@@ -304,12 +359,12 @@
     function setProgressBarColor(barId, usage, type) {
         const $bar = $('#' + barId);
         if (!$bar.length) return;
-        
+
         usage = Math.min(100, Math.max(0, usage || 0));
-        
+
         // Remove all bg classes
         $bar.removeClass('bg-primary bg-success bg-warning bg-danger');
-        
+
         // Add appropriate class based on usage level
         if (usage >= 80) {
             $bar.addClass('bg-danger');
@@ -323,7 +378,7 @@
             }
         }
     }
-    
+
     /**
      * Get Font Awesome icon class for OS.
      */
@@ -334,7 +389,7 @@
         if (osLower.includes('linux')) return 'fab fa-linux';
         return 'fas fa-desktop';
     }
-    
+
     /**
      * Format frequency in Hz to GHz.
      */
@@ -343,7 +398,7 @@
         const ghz = (hz / 1000000000).toFixed(2);
         return `${ghz} GHz`;
     }
-    
+
     /**
      * Format MAC address with colons.
      */
@@ -351,7 +406,7 @@
         if (!mac) return 'N/A';
         return mac.replace(/(.{2})(?=.)/g, '$1:').toUpperCase();
     }
-    
+
     /**
      * Escape HTML to prevent XSS.
      */
@@ -365,21 +420,21 @@
         };
         return (text || '').replace(/[&<>"']/g, m => map[m]);
     }
-    
+
     /**
      * Update agent count badge.
      */
     function updateAgentCount(count) {
         $('#agentCount').text(count);
     }
-    
+
     /**
      * Navigate to agent detail page.
      */
     function navigateToAgentDetail(macAddress) {
         window.location.href = `${window.contextPath || ''}/agent-detail.jsp?mac=${encodeURIComponent(macAddress)}`;
     }
-    
+
     /**
      * Show error message.
      */
@@ -390,52 +445,54 @@
             </div>
         `);
     }
-    
+
     // ============================================================================ //
     //                              SCAN FUNCTIONALITY                              //
     // ============================================================================ //
-    
+
     /**
      * Trigger network scan via API.
      */
     function triggerScan() {
         const $btn = $('#scanBtn');
         const $status = $('#scanStatus');
-        
+
         // Disable button and show loading
         $btn.prop('disabled', true);
         $btn.html('<i class="fas fa-spinner fa-spin"></i> Scanning...');
-        
+
         $.ajax({
             url: CONFIG.apiEndpoints.scan,
             method: 'POST',
             dataType: 'json',
-            success: function(response) {
+            success: function (response) {
                 if (response.success) {
-                    $status.html('<span class="text-success"><i class="fas fa-check-circle"></i> ' + 
-                                escapeHtml(response.message) + '</span>');
+                    $status.html('<span class="text-success"><i class="fas fa-check-circle"></i> ' +
+                        escapeHtml(response.message) + '</span>');
                     // Reload agents after scan
                     setTimeout(loadAgents, 2000);
                 } else {
-                    $status.html('<span class="text-danger"><i class="fas fa-times-circle"></i> ' + 
-                                escapeHtml(response.message) + '</span>');
+                    $status.html('<span class="text-danger"><i class="fas fa-times-circle"></i> ' +
+                        escapeHtml(response.message) + '</span>');
                 }
             },
-            error: function(xhr, status, error) {
+            error: function (xhr, status, error) {
                 $status.html('<span class="text-danger"><i class="fas fa-times-circle"></i> ' +
-                            'Scan failed. Make sure Manager is running.</span>');
+                    'Scan failed. Make sure Manager is running.</span>');
             },
-            complete: function() {
+            complete: function () {
                 // Re-enable button
                 $btn.prop('disabled', false);
                 $btn.html('<i class="fas fa-sync-alt"></i> Trigger Scan');
-                
+
                 // Clear status after 5 seconds
-                setTimeout(function() {
+                setTimeout(function () {
                     $status.html('');
                 }, 5000);
             }
         });
     }
-    
+
+
+
 })();

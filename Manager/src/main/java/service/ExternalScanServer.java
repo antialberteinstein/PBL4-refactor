@@ -334,6 +334,12 @@ public class ExternalScanServer extends Thread {
         try {
             // Trigger network scan
             Logger.info(COMPONENT, "Triggering network scan from external request");
+            
+            // Clear cache to force re-discovery of all agents
+            // This fixes issues where deleted agents (on Web) were not re-discovered
+            // because Manager still had them in cache.
+            hostScanner.clearCache();
+            
             hostScanner.scan();
             
             // Return success response
@@ -367,12 +373,12 @@ public class ExternalScanServer extends Thread {
             
             // Send kill command to Agent
             Logger.info(COMPONENT, "Sending KILL_PROCESS command to Agent " + macAddress + " (" + agentIp + ") for PID " + pid);
-            boolean success = remoteCommandClient.killProcess(agentIp, pid);
             
-            if (success) {
+            try {
+                remoteCommandClient.killProcess(agentIp, pid);
                 return RESPONSE_OK + ": Process " + pid + " killed on Agent " + macAddress;
-            } else {
-                return RESPONSE_ERROR + ": Failed to kill process " + pid + " on Agent " + macAddress;
+            } catch (Exception e) {
+                return RESPONSE_ERROR + ": Failed to kill process " + pid + " on Agent " + macAddress + " - " + e.getMessage();
             }
             
         } catch (NumberFormatException e) {
@@ -404,12 +410,12 @@ public class ExternalScanServer extends Thread {
             
             // Send shutdown command to Agent
             Logger.info(COMPONENT, "Sending SHUTDOWN command to Agent " + macAddress + " (" + agentIp + ") with delay " + delay + "s");
-            boolean success = remoteCommandClient.shutdown(agentIp, delay);
             
-            if (success) {
+            try {
+                remoteCommandClient.shutdown(agentIp, delay);
                 return RESPONSE_OK + ": Shutdown scheduled on Agent " + macAddress + " in " + delay + " seconds";
-            } else {
-                return RESPONSE_ERROR + ": Failed to shutdown Agent " + macAddress;
+            } catch (Exception e) {
+                return RESPONSE_ERROR + ": Failed to shutdown Agent " + macAddress + " - " + e.getMessage();
             }
             
         } catch (NumberFormatException e) {
@@ -438,12 +444,12 @@ public class ExternalScanServer extends Thread {
             
             // Send message command to Agent
             Logger.info(COMPONENT, "Sending message to Agent " + macAddress + " (" + agentIp + "): " + message);
-            boolean success = remoteCommandClient.sendMessage(agentIp, message);
             
-            if (success) {
+            try {
+                remoteCommandClient.sendMessage(agentIp, message);
                 return RESPONSE_OK + ": Message sent to Agent " + macAddress;
-            } else {
-                return RESPONSE_ERROR + ": Failed to send message to Agent " + macAddress;
+            } catch (Exception e) {
+                return RESPONSE_ERROR + ": Failed to send message to Agent " + macAddress + " - " + e.getMessage();
             }
             
         } catch (Exception e) {

@@ -9,6 +9,7 @@ import java.net.NetworkInterface;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import util.Logger;
 
@@ -32,7 +33,7 @@ public class HostScanner extends Thread {
     public HostScanner(AppConfig appConfig, ProtocolManager protocolManager) {
         this.appConfig = appConfig;
         this.protocolManager = protocolManager;
-        this.hosts = new ArrayList<>();
+        this.hosts = new CopyOnWriteArrayList<>();
     }
     
     public void setSessionRetriever(SessionRetriever sessionRetriever) {
@@ -138,6 +139,27 @@ public class HostScanner extends Thread {
 
     public DatagramSocket getMailbox() {
         return mailbox;
+    }
+    
+    /**
+     * Remove a host from the discovered list.
+     * This allows the host to be re-discovered in subsequent scans.
+     * 
+     * @param ipAddress IP address to remove
+     */
+    public void removeHost(String ipAddress) {
+        if (hosts.remove(ipAddress)) {
+            Logger.info(COMPONENT, "Removed host from discovery cache: " + ipAddress);
+        }
+    }
+    
+    /**
+     * Clear the entire discovery cache.
+     * Forces re-discovery of all hosts on next scan.
+     */
+    public void clearCache() {
+        hosts.clear();
+        Logger.info(COMPONENT, "Cleared discovery cache");
     }
 
     // Hàm chuyển IP string -> int

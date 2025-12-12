@@ -141,11 +141,12 @@ public class ResourceMonitor extends Thread {
         String message = String.format("WARNING: CPU usage is high: %.2f%% (Threshold: %.2f%%)", 
                                       cpuUsage, appConfig.getCpuThresholdPercent());
         
-        boolean success = remoteCommandClient.sendWarning(ip, message);
-        
-        if (success) {
+        try {
+            remoteCommandClient.sendWarning(ip, message);
             cpuWarningsSent.put(macAddress, true);
             Logger.info(COMPONENT, "CPU warning sent to " + hostname);
+        } catch (Exception e) {
+            Logger.error(COMPONENT, "Failed to send CPU warning to " + hostname + ": " + e.getMessage());
         }
     }
 
@@ -169,11 +170,12 @@ public class ResourceMonitor extends Thread {
         String message = String.format("WARNING: RAM usage is high: %.2f%% (Threshold: %.2f%%)", 
                                       ramUsagePercent, appConfig.getRamThresholdPercent());
         
-        boolean success = remoteCommandClient.sendWarning(ip, message);
-        
-        if (success) {
+        try {
+            remoteCommandClient.sendWarning(ip, message);
             ramWarningsSent.put(macAddress, true);
             Logger.info(COMPONENT, "RAM warning sent to " + hostname);
+        } catch (Exception e) {
+            Logger.error(COMPONENT, "Failed to send RAM warning to " + hostname + ": " + e.getMessage());
         }
     }
 }
