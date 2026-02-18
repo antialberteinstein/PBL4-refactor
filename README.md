@@ -1,6 +1,6 @@
-# PBL4-refactor — Hướng dẫn toàn diện
+# Project based Learning 4
 
-Tài liệu này tóm tắt cách phát triển (development) và cách chạy hệ thống (Agent, Manager, ManagerWeb) cho repository PBL4-refactor.
+Tài liệu này tóm tắt cách phát triển (development) và cách chạy hệ thống (Agent, Manager, ManagerWeb) cho repository PBL4.
 
 Nội dung chính được viết bằng tiếng Việt để dễ theo dõi trong quá trình phát triển và vận hành.
 
@@ -33,7 +33,7 @@ Mục tiêu README này là tập hợp các hướng dẫn thực tế để b�
 ## Cấu trúc repository (tóm tắt)
 
 ```
-PBL4-refactor/
+PBL4/
 ├── Agent/
 │   ├── pom.xml
 │   └── src/main/java/
