@@ -1,30 +1,18 @@
-<p align="center">
-  <img src="preview_images/preview.png" alt="PBL4 Preview" width="800"/>
-</p>
+# Project based Learning 4
 
-<h3 align="center">Project Based Learning 4: Infrastructure Management & Monitoring!</h3>
-<h4 align="center">Every Metric, Every Second. Agent, Manager, and Web Dashboard.</h4>
+Tài liệu này tóm tắt cách phát triển (development) và cách chạy hệ thống (Agent, Manager, ManagerWeb) cho repository PBL4.
 
-<br />
-<p align="center">
-  <a href="https://github.com/antialberteinstein/PBL4"><img src="https://img.shields.io/github/stars/antialberteinstein/PBL4?style=social" alt="GitHub Stars"></a>
-  <br />
-  <a href="#"><img src="https://img.shields.io/badge/Platform-Java%20%7C%20Web-blue" alt="Platform"></a>
-  <a href="#"><img src="https://img.shields.io/badge/License-GPL-yellow" alt="License"></a>
-  <a href="MoreInfo.md"><img src="https://img.shields.io/badge/Documentation-More%20Info-green" alt="Docs"></a>
-</p>
+Nội dung chính được viết bằng tiếng Việt để dễ theo dõi trong quá trình phát triển và vận hành.
 
-<p align="center"><b>Xem thêm thông tin và tài liệu chi tiết tại <a href="MoreInfo.md">MoreInfo.md</a></b></p>
+![Preview](preview_images/preview.png)
 
-<hr class="solid">
-
-MENU: **[TỔNG QUAN](#tổng-quan)** | **[YÊU CẦU](#yêu-cầu-tiên-quyết)** | **[CẤU TRÚC](#cấu-trúc-repository-tóm-tắt)** | **[CÀI ĐẶT](#cài-đặt-môi-trường)** | **[HƯỚNG DẪN](#hướng-dẫn-phát-triển-build--run)** | **[KIẾN TRÚC](#network-architecture)** | **[KIỂM THỬ](#-testing)** | **[BẢO MẬT](#-security-considerations)**
-
-> [!WARNING]
-> Tài liệu này tóm tắt quá trình phát triển hệ thống Agent, Manager, ManagerWeb cho dự án **PBL4**.
-> *Nội dung được tối ưu để dễ theo dõi trong quá trình phát triển và vận hành.*
-
-[![Platforms](https://img.shields.io/badge/Platforms-Linux%20%7C%20macOS%20%7C%20Windows-blue)]()
+## Mục lục
+- [Tổng quan](#tổng-quan)
+- [Yêu cầu tiên quyết](#yêu-cầu-tiên-quyết)
+- [Cấu trúc repository](#cấu-trúc-repository-tóm-tắt)
+- [Hướng dẫn phát triển (build & run)](#hướng-dẫn-phát-triển-build--run)
+- [Ghi chú vận hành & xử lý sự cố (Troubleshooting)](#xử-lý-sự-cố-troubleshooting)
+- [Góp phần & phát triển mở rộng](#góp-phần--phát-triển-mở-rộng)
 
 ---
 
